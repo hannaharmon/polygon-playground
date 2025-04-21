@@ -55,7 +55,7 @@ void Polygon::generateRegularPolygon(const Vector3d& center, int numEdges, doubl
         totalLength += (edge.p0->x - edge.p1->x).norm();
     }
     double avgLength = totalLength / edges.size();
-    collisionThickness = 0.5 * avgLength; // More conservative, consistent
+    collisionThickness = .1; // More conservative, consistent
 }
 
 
@@ -378,9 +378,9 @@ void Polygon::draw(bool drawParticles, bool drawSprings, bool drawEdges) const {
         totalLen += (a - b).head<2>().norm(); // 2D length
     }
     float avgLen = totalLen / particles.size();
-    float offset = 0.25f * avgLen;
+    float offset = .5 * .1;
 
 
-    drawPolygonOffset(particles, offset, true, Eigen::Vector3f(0.0f, 0.5f, 1.0f));
+    //drawPolygonOffset(particles, offset, true, Eigen::Vector3f(0.0f, 0.5f, 1.0f));
     drawPolygonOffset(particles, offset, false, Eigen::Vector3f(1, 1, 1));
 }

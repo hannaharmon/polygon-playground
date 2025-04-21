@@ -32,7 +32,7 @@ public:
         const Eigen::Vector3d& gravity,
         double damping
     );
-    void draw(bool drawParticles = false, bool drawSprings = false, bool drawEdges = true) const;
+    void draw(bool drawParticles = true, bool drawSprings = true, bool drawEdges = true) const;
     bool isAbove(const std::shared_ptr<Polygon>& other) const;
     std::vector<std::shared_ptr<Particle>> particles;
     std::vector<std::shared_ptr<Spring>> springs;
