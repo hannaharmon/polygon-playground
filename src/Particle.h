@@ -9,8 +9,6 @@
 #include <Eigen/Dense>
 
 class Shape;
-class Program;
-class MatrixStack;
 
 class Particle
 {
@@ -19,15 +17,9 @@ public:
 	
 	Particle();
 	virtual ~Particle();
-	void tare();
-	void reset();
-	void draw(std::shared_ptr<MatrixStack> MV, const std::shared_ptr<Program> p) const;
 	
-	double r; // radius
 	double m; // mass
 	double d; // damping
-	Eigen::Vector3d x0; // initial position
-	Eigen::Vector3d v0; // initial velocity
 	Eigen::Vector3d x;  // position
 	Eigen::Vector3d p;  // previous position
 	Eigen::Vector3d v;  // velocity
