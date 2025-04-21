@@ -36,7 +36,7 @@ void LoadScene(int key) {
 
 void initScenes() {
     sceneManager.RegisterScene(1, []() {
-        return PolygonFactory::CreateStackedRectangles(Vector3d(0, 0.5, 0), 5, 0.4, 0.4);
+        return PolygonFactory::CreateStackedRectangles(Vector3d(0, 0.5, 0), 5, 0.4, 0.8);
         });
 
     sceneManager.RegisterScene(2, []() {
@@ -56,7 +56,7 @@ void display(GLFWwindow* window) {
         poly->step(
             timeStep,
             5,                // spring iterations
-            10,               // collision iterations
+            12,               // collision iterations
             groundY,
             polygons,
             gravity,

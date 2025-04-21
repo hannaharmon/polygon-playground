@@ -30,7 +30,7 @@ public:
         const Eigen::Vector3d& gravity,
         double damping
     );
-    void draw(bool drawParticles = true, bool drawSprings = true, bool drawEdges = true) const;
+    void draw(bool drawParticles = false, bool drawSprings = false, bool drawEdges = true) const;
 
 private:
     std::vector<Edge> edges;

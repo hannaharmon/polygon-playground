@@ -50,14 +50,13 @@ void Polygon::generateRegularPolygon(const Vector3d& center, int numEdges, doubl
         }
     }
 
-    // Compute average edge length to set collision thickness
-    double totalLength = 0.0;
-    for (const auto& s : springs) {
-        totalLength += (s->p1->x - s->p0->x).norm();
+    // Min edge length
+    double minLength = std::numeric_limits<double>::max();
+    for (const auto& edge : edges) {
+        double len = (edge.p0->x - edge.p1->x).norm();
+        if (len < minLength) minLength = len;
     }
-    double avgLength = totalLength / springs.size();
-    collisionThickness = 0.25 * avgLength + .03;
-
+    collisionThickness = 0.5 * minLength - 0.051;
 }
 
 
@@ -207,8 +206,14 @@ void Polygon::step(
         for (auto& s : springs) {
             Vector3d delta = s->p1->x - s->p0->x;
             double dist = delta.norm();
+
+            // Prevent divide by zero
             if (dist < 1e-6) continue;
+
+            // Relative correction
             double diff = (dist - s->L) / dist;
+
+            // Apply spring correction
             if (!s->p0->fixed && !s->p1->fixed) {
                 Vector3d correction = 0.5 * diff * delta;
                 s->p0->x += correction;
@@ -239,6 +244,44 @@ void Polygon::step(
     applyGroundFriction(groundY, gravity, timeStep);
 }
 
+void drawPolygonOffset(
+    const std::vector<std::shared_ptr<Particle>>& particles,
+    float offset,
+    bool fill,
+    const Eigen::Vector3f& color,
+    float lineWidth = 2.5f
+) {
+    using Vec2 = Eigen::Vector2f;
+
+    // Compute center of shape
+    Vec2 center(0, 0);
+    for (auto& p : particles) {
+        center += Vec2(p->x.x(), p->x.y());
+    }
+    center /= particles.size();
+
+    // Set color
+    glColor3f(color.x(), color.y(), color.z());
+
+    // Choose draw mode
+    if (fill) {
+        glBegin(GL_TRIANGLE_FAN);
+    }
+    else {
+        glLineWidth(lineWidth);
+        glBegin(GL_LINE_LOOP);
+    }
+
+    // Shift and draw
+    for (auto& p : particles) {
+        Vec2 pos(p->x.x(), p->x.y());
+        Vec2 dir = (pos - center).normalized();
+        Vec2 shifted = pos + dir * offset;
+        glVertex2f(shifted.x(), shifted.y());
+    }
+
+    glEnd();
+}
 
 void Polygon::draw(bool drawParticles, bool drawSprings, bool drawEdges) const {
 
@@ -255,6 +298,7 @@ void Polygon::draw(bool drawParticles, bool drawSprings, bool drawEdges) const {
 
 	// springs
     if (drawSprings) {
+        glLineWidth(1);
         glBegin(GL_LINES);
         glColor3f(0, 1, 0);
         for (auto& s : springs) {
@@ -266,6 +310,7 @@ void Polygon::draw(bool drawParticles, bool drawSprings, bool drawEdges) const {
 
     // edges
     if (drawEdges) {
+        glLineWidth(1);
         glBegin(GL_LINES);
         glColor3f(0.0f, 0.5f, 1.0f);
         for (auto& e : edges) {
@@ -274,4 +319,7 @@ void Polygon::draw(bool drawParticles, bool drawSprings, bool drawEdges) const {
         }
         glEnd();
     }
+
+    drawPolygonOffset(particles, .04f, true, Eigen::Vector3f(0.0f, 0.5f, 1.0f));
+    drawPolygonOffset(particles, .04f, false, Eigen::Vector3f(1, 1, 1));
 }
