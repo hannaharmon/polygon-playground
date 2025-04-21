@@ -120,6 +120,25 @@ void Polygon::updateVelocities(double timeStep) {
     }
 }
 
+void Polygon::applyGroundFriction(double groundY, const Vector3d& gravity, double timeStep) {
+    double mu = 0.8;
+
+    for (auto& p : particles) {
+        if (!p->fixed && std::abs(p->x.y() - groundY) < 1e-6) {
+            double normalForce = p->m * gravity.norm();
+            double maxFriction = mu * normalForce * timeStep;
+
+            double vx = p->v.x();
+            if (std::abs(vx) > 1e-4) {
+                double friction = -vx;
+                friction = std::clamp(friction, -maxFriction, maxFriction);
+                p->v.x() += friction;
+            }
+        }
+    }
+}
+
+
 void Polygon::step(
     double timeStep,
     int springIters,
@@ -170,8 +189,12 @@ void Polygon::step(
         }
     }
 
+
     // 5. Update velocity
     updateVelocities(timeStep);
+
+    // 6. Ground friction
+    applyGroundFriction(groundY, gravity, timeStep);
 }
 
 
