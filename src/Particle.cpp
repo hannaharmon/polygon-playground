@@ -13,7 +13,7 @@
 using namespace std;
 
 Particle::Particle() :
-	r(1.0),
+	r(.08),
 	m(1.0),
 	x(0.0, 0.0, 0.0),
 	v(0.0, 0.0, 0.0),

@@ -20,16 +20,45 @@ const double groundY = -1.0;
 const double damping = 0.98;
 
 // Globals
-shared_ptr<Polygon> polygon;
+vector<shared_ptr<Polygon>> polygons;
 
 void initBlocks() {
-	polygon = make_shared<Polygon>(Vector3d(0, 0.5, 0.0), 4, 0.4, 0.4);
+    int edges = 4;     // Keeping rectangular for now
+    double width = 0.4;
+    double height = 0.4;
+
+    polygons.push_back(make_shared<Polygon>(Vector3d(0.0, .2, 0.0), edges, width, height));
+    polygons.push_back(make_shared<Polygon>(Vector3d(0.0, 2, 0.0), edges, width, height));
+    polygons.push_back(make_shared<Polygon>(Vector3d(0.0, 3, 0.0), edges, width, height));
+    polygons.push_back(make_shared<Polygon>(Vector3d(1, 2, 0.0), edges, width, height));
+    polygons.push_back(make_shared<Polygon>(Vector3d(1, .8, 0.0), edges, width, height));
 }
 
 void display(GLFWwindow* window) {
-    glClear(GL_COLOR_BUFFER_BIT);
+    for (auto& poly : polygons) {
+        poly->applyForces(timeStep, gravity, damping);
+    }
 
-    
+    int springIters = 5;
+    int collisionIters = 2;
+    for (size_t i = 0; i < polygons.size(); ++i) {
+        for (size_t j = 0; j < polygons.size(); ++j) {
+            if (i == j) continue;
+            polygons[i]->resolveCollisionsWith(polygons[j]);
+        }
+    }
+    for (auto& poly : polygons) {
+        poly->satisfyConstraints(springIters, collisionIters, groundY, polygons);
+    }
+
+    for (auto& poly : polygons) {
+        poly->updateVelocities(timeStep);
+    }
+
+    glClear(GL_COLOR_BUFFER_BIT);
+    for (auto& poly : polygons) {
+        poly->draw();
+    }
 }
 
 int main() {
@@ -38,7 +67,7 @@ int main() {
         return -1;
     }
 
-    GLFWwindow* window = glfwCreateWindow(800, 600, "2D Deformable Block", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(800, 600, "Polygon Playground", NULL, NULL);
     if (!window) {
         cerr << "Failed to open GLFW window" << endl;
         glfwTerminate();
@@ -57,12 +86,7 @@ int main() {
     initBlocks();
 
     while (!glfwWindowShouldClose(window)) {
-        polygon->applyForces(timeStep, gravity, damping);
-        polygon->satisfyConstraints(10, groundY);
-        polygon->updateVelocities(timeStep);
-
-        glClear(GL_COLOR_BUFFER_BIT);
-        polygon->draw();
+        display(window);
 
         glfwSwapBuffers(window);
         glfwPollEvents();

@@ -62,6 +62,25 @@ void Polygon::generateRectangularGrid(const Vector3d& pos, int rows, int cols, d
             }
         }
     }
+
+	// Determine edges
+    // Top and bottom rows
+    for (int j = 0; j < cols - 1; ++j) {
+        // Top row
+        edges.push_back({ particles[j], particles[j + 1] });
+        // Bottom row
+        int rowOffset = (rows - 1) * cols;
+        edges.push_back({ particles[rowOffset + j], particles[rowOffset + j + 1] });
+    }
+
+    // Left and right columns
+    for (int i = 0; i < rows - 1; ++i) {
+        // Left column
+        edges.push_back({ particles[i * cols], particles[(i + 1) * cols] });
+        // Right column
+        edges.push_back({ particles[i * cols + (cols - 1)], particles[(i + 1) * cols + (cols - 1)] });
+    }
+
 }
 
 void Polygon::applyForces(double timeStep, const Vector3d& gravity, double damping) {
@@ -75,8 +94,10 @@ void Polygon::applyForces(double timeStep, const Vector3d& gravity, double dampi
     }
 }
 
-void Polygon::satisfyConstraints(int iterations, double groundY) {
-    for (int k = 0; k < iterations; ++k) {
+void Polygon::satisfyConstraints(int springIters, int collisionIters, double groundY, const std::vector<std::shared_ptr<Polygon>>& others)
+{
+    // Spring Constraints
+    for (int k = 0; k < springIters; ++k) {
         for (auto& s : springs) {
             Vector3d delta = s->p1->x - s->p0->x;
             double dist = delta.norm();
@@ -96,15 +117,74 @@ void Polygon::satisfyConstraints(int iterations, double groundY) {
         }
     }
 
-    // Ground collision
-    for (auto& p : particles) {
-        if (!p->fixed && p->x.y() < groundY) {
-            p->x.y() = groundY;
-            if (p->v.y() < 0.0) p->v.y() = 0.0;
-            if (p->v.norm() < 0.05) p->v = Vector3d::Zero();
+    // Collision correction
+    for (int k = 0; k < collisionIters; ++k) {
+        for (auto& other : others) {
+            if (other.get() == this) continue;
+            this->resolveCollisionsWith(other);
+        }
+
+        // Ground
+        for (auto& p : particles) {
+            if (!p->fixed && p->x.y() < groundY) {
+                p->x.y() = groundY;
+                if (p->v.y() < 0.0) p->v.y() = 0.0;
+                if (p->v.norm() < 0.05) p->v = Vector3d::Zero();
+            }
         }
     }
 }
+
+void Polygon::resolveCollisionsWith(const std::shared_ptr<Polygon>& other) {
+
+	// edge based collision detection
+    for (const auto& edge : edges) {
+        Vector3d a = edge.p0->x;
+        Vector3d b = edge.p1->x;
+        Vector3d edgeVec = b - a;
+        double edgeLenSq = edgeVec.squaredNorm();
+
+        for (auto& p : other->particles) {
+            if (p->fixed) continue;
+
+            // Project point onto edge segment
+            Vector3d ap = p->x - a;
+            double t = edgeVec.dot(ap) / edgeLenSq;
+            t = std::max(0.0, std::min(1.0, t));
+            Vector3d closest = a + t * edgeVec;
+
+            Vector3d delta = p->x - closest;
+            double dist = delta.norm();
+            double minDist = std::min(collisionThickness, other->collisionThickness);
+
+            if (dist < minDist && dist > 1e-6) {
+                Vector3d n = delta.normalized();
+                double penetration = minDist - dist;
+
+                // Distribute correction across the three points
+                double w0 = edge.p0->fixed ? 0.0 : 1.0 / edge.p0->m;
+                double w1 = edge.p1->fixed ? 0.0 : 1.0 / edge.p1->m;
+                double wp = p->fixed ? 0.0 : 1.0 / p->m;
+                double wsum = w0 + w1 + wp;
+
+                if (wsum < 1e-8) continue; // all are fixed
+
+                if (!p->fixed)
+                    p->x += n * (penetration * wp / wsum);
+                if (!edge.p0->fixed)
+                    edge.p0->x -= n * (penetration * w0 / wsum);
+                if (!edge.p1->fixed)
+                    edge.p1->x -= n * (penetration * w1 / wsum);
+
+                // Damp velocity on p only (for simplicity)
+                double vRel = p->v.dot(n);
+                if (vRel < 0.0)
+                    p->v -= vRel * n;
+            }
+        }
+    }
+}
+
 
 void Polygon::updateVelocities(double timeStep) {
     for (auto& p : particles) {
@@ -114,20 +194,38 @@ void Polygon::updateVelocities(double timeStep) {
     }
 }
 
-void Polygon::draw() const {
-    glPointSize(8.0f);
-    glBegin(GL_POINTS);
-    glColor3f(1, 0, 0);
-    for (auto& p : particles) {
-        glVertex2f((float)p->x.x(), (float)p->x.y());
-    }
-    glEnd();
+void Polygon::draw(bool drawParticles, bool drawSprings, bool drawEdges) const {
 
-    glBegin(GL_LINES);
-    glColor3f(0, 1, 0);
-    for (auto& s : springs) {
-        glVertex2f((float)s->p0->x.x(), (float)s->p0->x.y());
-        glVertex2f((float)s->p1->x.x(), (float)s->p1->x.y());
+    // particles
+    if (drawParticles) {
+        glPointSize(5.0f);
+        glBegin(GL_POINTS);
+        glColor3f(1, 0, 0);
+        for (auto& p : particles) {
+            glVertex2f((float)p->x.x(), (float)p->x.y());
+        }
+        glEnd();
     }
-    glEnd();
+
+	// springs
+    if (drawSprings) {
+        glBegin(GL_LINES);
+        glColor3f(0, 1, 0);
+        for (auto& s : springs) {
+            glVertex2f((float)s->p0->x.x(), (float)s->p0->x.y());
+            glVertex2f((float)s->p1->x.x(), (float)s->p1->x.y());
+        }
+        glEnd();
+    }
+
+    // edges
+    if (drawEdges) {
+        glBegin(GL_LINES);
+        glColor3f(0.0f, 0.5f, 1.0f);
+        for (auto& e : edges) {
+            glVertex2f(e.p0->x.x(), e.p0->x.y());
+            glVertex2f(e.p1->x.x(), e.p1->x.y());
+        }
+        glEnd();
+    }
 }
