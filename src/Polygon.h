@@ -20,6 +20,7 @@ public:
     void applyForces(double timeStep, const Eigen::Vector3d& gravity, double damping);
     void resolveCollisionsWith(const std::shared_ptr<Polygon>& other, double timeStep);
     void updateVelocities(double timeStep);
+    double getTotalMass() const;
     void applyGroundFriction(double groundY, const Eigen::Vector3d& gravity, double timeStep);
     void step(
         double timeStep,

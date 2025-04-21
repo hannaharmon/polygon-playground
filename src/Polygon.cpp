@@ -56,7 +56,7 @@ void Polygon::generateRegularPolygon(const Vector3d& center, int numEdges, doubl
         double len = (edge.p0->x - edge.p1->x).norm();
         if (len < minLength) minLength = len;
     }
-    collisionThickness = 0.5 * minLength - 0.051;
+    collisionThickness = 0.5 * minLength;
 }
 
 
@@ -109,34 +109,30 @@ void Polygon::resolveCollisionsWith(const std::shared_ptr<Polygon>& other, doubl
                 if (!edge.p1->fixed)
                     edge.p1->x -= n * (penetration * w1 / wsum);
 
-                // --- Position-Based Friction (correct direction!) ---
-                Vector3d edgeVel = 0.5 * (edge.p0->v + edge.p1->v);
-                Vector3d relVel = p->v - edgeVel;
-                double vn = relVel.dot(n);
-                Vector3d vt = relVel - vn * n;
-
-                if (vt.norm() > 1e-6) {
-                    double muPos = 0.8;
-                    Vector3d frictionDir = -vt.normalized();
-                    Vector3d frictionDisplacement = muPos * frictionDir * (penetration * 0.5);
-
-                    if (!p->fixed)
-                        p->x += frictionDisplacement * (wp / wsum);
-                    if (!edge.p0->fixed)
-                        edge.p0->x -= frictionDisplacement * (w0 / wsum);
-                    if (!edge.p1->fixed)
-                        edge.p1->x -= frictionDisplacement * (w1 / wsum);
-                }
-
                 // --- Normal velocity damping ---
                 double vRelNormal = p->v.dot(n);
-                if (vRelNormal < 0.0)
+                if (vRelNormal < 0.0) {
                     p->v -= vRelNormal * n;
+                }
 
-                // --- Velocity-Based Tangential Friction ---
+                // --- Tangential Friction ---
+                Vector3d edgeVel = 0.5 * (edge.p0->v + edge.p1->v);
+                Vector3d relVel = p->v - edgeVel;
+
+                Vector3d vnVec = relVel.dot(n) * n;
+                Vector3d vt = relVel - vnVec;
+
                 if (vt.norm() > 1e-6) {
-                    double muVel = 0.6;
-                    double frictionMag = muVel * penetration / timeStep;
+                    double mu = 0.6;
+
+                    // Use dynamic friction if significant normal contact
+                    double frictionMag = mu * std::abs(vRelNormal);
+
+                    // Fallback if vRelNormal is tiny (almost at rest) — simulate static friction
+                    if (std::abs(vRelNormal) < 1e-4) {
+                        frictionMag = mu * penetration / timeStep;
+                    }
+
                     frictionMag = std::min(frictionMag, vt.norm());
 
                     Vector3d frictionImpulse = -frictionMag * vt.normalized();
@@ -148,15 +144,27 @@ void Polygon::resolveCollisionsWith(const std::shared_ptr<Polygon>& other, doubl
                     if (!edge.p1->fixed)
                         edge.p1->v -= frictionImpulse * (w1 / wsum);
                 }
+
             }
         }
     }
 }
 
+double Polygon::getTotalMass() const {
+    double mass = 0.0;
+    for (const auto& p : particles)
+        mass += p->m;
+    return mass;
+}
+
+
 void Polygon::updateVelocities(double timeStep) {
     for (auto& p : particles) {
         if (!p->fixed) {
             p->v = (p->x - p->p) / timeStep;
+        }
+        if (!p->fixed && std::abs(p->v.x()) < 0.02 && std::abs(p->v.y()) < 0.01) {
+            p->v.x() = 0;
         }
     }
 }
@@ -164,20 +172,33 @@ void Polygon::updateVelocities(double timeStep) {
 void Polygon::applyGroundFriction(double groundY, const Vector3d& gravity, double timeStep) {
     double mu = 0.8;
 
-    for (auto& p : particles) {
-        if (!p->fixed && std::abs(p->x.y() - groundY) < 1e-6) {
-            double normalForce = p->m * gravity.norm();
-            double maxFriction = mu * normalForce * timeStep;
+    // Compute total downward force on the polygon
+    double totalMass = getTotalMass();
+    double normalForce = totalMass * gravity.norm();
+    double maxFriction = mu * normalForce * timeStep;
 
-            double vx = p->v.x();
-            if (std::abs(vx) > 1e-4) {
-                double friction = -vx;
-                friction = std::clamp(friction, -maxFriction, maxFriction);
-                p->v.x() += friction;
-            }
+    // Identify how many particles are in contact with the ground
+    std::vector<std::shared_ptr<Particle>> groundParticles;
+    for (auto& p : particles) {
+        if (!p->fixed && std::abs(p->x.y() - groundY) < 1e-4) {
+            groundParticles.push_back(p);
+        }
+    }
+
+    if (groundParticles.empty()) return;
+
+    // Distribute max friction across grounded particles
+    double frictionPerParticle = maxFriction / groundParticles.size();
+
+    for (auto& p : groundParticles) {
+        double vx = p->v.x();
+        if (std::abs(vx) > 1e-4) {
+            double friction = std::clamp(-vx, -frictionPerParticle, frictionPerParticle);
+            p->v.x() += friction;
         }
     }
 }
+
 
 
 void Polygon::step(
@@ -321,5 +342,5 @@ void Polygon::draw(bool drawParticles, bool drawSprings, bool drawEdges) const {
     }
 
     drawPolygonOffset(particles, .04f, true, Eigen::Vector3f(0.0f, 0.5f, 1.0f));
-    drawPolygonOffset(particles, .04f, false, Eigen::Vector3f(1, 1, 1));
+    drawPolygonOffset(particles, .04, false, Eigen::Vector3f(1, 1, 1));
 }
