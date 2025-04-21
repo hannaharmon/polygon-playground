@@ -44,7 +44,7 @@ void initScenes() {
         });
 
     sceneManager.RegisterScene(3, []() {
-        return PolygonFactory::CreateGridOfPolygons(Vector3d(1.2, 0.5, 0), 2, 3, 6, 0.5, 0.5, 0.1, 0.1);
+        return PolygonFactory::CreateGridOfPolygons(Vector3d(0, 0.5, 0), 2, 3, 6, 0.5, 0.5, 0.1, 0.1);
         });
 
     // Load the first scene by default
@@ -85,7 +85,10 @@ int main() {
         return -1;
     }
 
-    GLFWwindow* window = glfwCreateWindow(800, 600, "Polygon Playground", NULL, NULL);
+    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+    const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+    GLFWwindow* window = glfwCreateWindow(1200, 800, "Polygon Playground", NULL, NULL);
+
     if (!window) {
         cerr << "Failed to open GLFW window" << endl;
         glfwTerminate();
@@ -98,7 +101,7 @@ int main() {
 
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    glOrtho(-2, 2, -2, 2, -1, 1);
+    glOrtho(-2, 2, -2, 2, -1, 1); // keep logical coordinates fixed
     glMatrixMode(GL_MODELVIEW);
 
     initScenes();
@@ -107,7 +110,6 @@ int main() {
 
     while (!glfwWindowShouldClose(window)) {
         display(window);
-
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
@@ -116,3 +118,4 @@ int main() {
     glfwTerminate();
     return 0;
 }
+

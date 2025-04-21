@@ -381,6 +381,6 @@ void Polygon::draw(bool drawParticles, bool drawSprings, bool drawEdges) const {
     float offset = .5 * .1;
 
 
-    //drawPolygonOffset(particles, offset, true, Eigen::Vector3f(0.0f, 0.5f, 1.0f));
+    drawPolygonOffset(particles, offset, true, Eigen::Vector3f(0.0f, 0.5f, 1.0f));
     drawPolygonOffset(particles, offset, false, Eigen::Vector3f(1, 1, 1));
 }
