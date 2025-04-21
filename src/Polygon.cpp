@@ -12,17 +12,17 @@
 using namespace std;
 using namespace Eigen;
 
-Polygon::Polygon(const Vector3d& pos, int numEdges, double width, double height) {
-    generateRegularPolygon(pos, numEdges, width, height);
+Polygon::Polygon(const Vector3d& pos, int numEdges, double width, double height, double rotation) {
+    generateRegularPolygon(pos, numEdges, width, height, rotation);
 }
 
-void Polygon::generateRegularPolygon(const Vector3d& center, int numEdges, double width, double height) {
+void Polygon::generateRegularPolygon(const Vector3d& center, int numEdges, double width, double height, double rotation) {
     double radiusX = width / 2.0;
     double radiusY = height / 2.0;
 
     // Create one particle per corner
     for (int i = 0; i < numEdges; ++i) {
-        double angle = 2.0 * M_PI * i / numEdges;
+        double angle = 2.0 * M_PI * i / numEdges + rotation;
         auto p = make_shared<Particle>();
         p->x = center + Vector3d(radiusX * cos(angle), radiusY * sin(angle), 0);
         p->v = Vector3d::Zero();
@@ -72,7 +72,7 @@ void Polygon::applyForces(double timeStep, const Vector3d& gravity, double dampi
     }
 }
 
-void Polygon::resolveCollisionsWith(const shared_ptr<Polygon>& other) {
+void Polygon::resolveCollisionsWith(const std::shared_ptr<Polygon>& other, double timeStep) {
     for (const auto& edge : edges) {
         Vector3d a = edge.p0->x;
         Vector3d b = edge.p1->x;
@@ -84,8 +84,9 @@ void Polygon::resolveCollisionsWith(const shared_ptr<Polygon>& other) {
 
             Vector3d ap = p->x - a;
             double t = edgeVec.dot(ap) / edgeLenSq;
-            t = std::max(0.0, std::min(1.0, t));
+            t = std::clamp(t, 0.0, 1.0);
             Vector3d closest = a + t * edgeVec;
+
             Vector3d delta = p->x - closest;
             double dist = delta.norm();
             double minDist = std::max(collisionThickness, other->collisionThickness);
@@ -94,23 +95,64 @@ void Polygon::resolveCollisionsWith(const shared_ptr<Polygon>& other) {
                 Vector3d n = delta.normalized();
                 double penetration = minDist - dist;
 
+                // Inverse masses
+                double wp = p->fixed ? 0.0 : 1.0 / p->m;
                 double w0 = edge.p0->fixed ? 0.0 : 1.0 / edge.p0->m;
                 double w1 = edge.p1->fixed ? 0.0 : 1.0 / edge.p1->m;
-                double wp = p->fixed ? 0.0 : 1.0 / p->m;
-                double wsum = w0 + w1 + wp;
-                if (wsum < 1e-6) continue;
+                double wsum = wp + w0 + w1;
+                if (wsum < 1e-8) continue;
 
+                // --- Position Correction (normal) ---
                 if (!p->fixed)
                     p->x += n * (penetration * wp / wsum);
                 if (!edge.p0->fixed)
                     edge.p0->x -= n * (penetration * w0 / wsum);
                 if (!edge.p1->fixed)
                     edge.p1->x -= n * (penetration * w1 / wsum);
+
+                // --- Position-Based Friction (correct direction!) ---
+                Vector3d edgeVel = 0.5 * (edge.p0->v + edge.p1->v);
+                Vector3d relVel = p->v - edgeVel;
+                double vn = relVel.dot(n);
+                Vector3d vt = relVel - vn * n;
+
+                if (vt.norm() > 1e-6) {
+                    double muPos = 0.8;
+                    Vector3d frictionDir = -vt.normalized();
+                    Vector3d frictionDisplacement = muPos * frictionDir * (penetration * 0.5);
+
+                    if (!p->fixed)
+                        p->x += frictionDisplacement * (wp / wsum);
+                    if (!edge.p0->fixed)
+                        edge.p0->x -= frictionDisplacement * (w0 / wsum);
+                    if (!edge.p1->fixed)
+                        edge.p1->x -= frictionDisplacement * (w1 / wsum);
+                }
+
+                // --- Normal velocity damping ---
+                double vRelNormal = p->v.dot(n);
+                if (vRelNormal < 0.0)
+                    p->v -= vRelNormal * n;
+
+                // --- Velocity-Based Tangential Friction ---
+                if (vt.norm() > 1e-6) {
+                    double muVel = 0.6;
+                    double frictionMag = muVel * penetration / timeStep;
+                    frictionMag = std::min(frictionMag, vt.norm());
+
+                    Vector3d frictionImpulse = -frictionMag * vt.normalized();
+
+                    if (!p->fixed)
+                        p->v += frictionImpulse * (wp / wsum);
+                    if (!edge.p0->fixed)
+                        edge.p0->v -= frictionImpulse * (w0 / wsum);
+                    if (!edge.p1->fixed)
+                        edge.p1->v -= frictionImpulse * (w1 / wsum);
+                }
             }
         }
     }
 }
-
 
 void Polygon::updateVelocities(double timeStep) {
     for (auto& p : particles) {
@@ -155,7 +197,7 @@ void Polygon::step(
     for (int k = 0; k < collisionIters; ++k) {
         for (auto& other : others) {
             if (other.get() != this) {
-                resolveCollisionsWith(other);
+                resolveCollisionsWith(other, timeStep);
             }
         }
     }

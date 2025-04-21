@@ -16,9 +16,9 @@ struct Edge {
 
 class Polygon {
 public:
-    Polygon(const Eigen::Vector3d& pos, int numEdges, double width, double height);
+    Polygon(const Eigen::Vector3d& pos, int numEdges, double width, double height, double rotation = 0.0);
     void applyForces(double timeStep, const Eigen::Vector3d& gravity, double damping);
-    void resolveCollisionsWith(const std::shared_ptr<Polygon>& other);
+    void resolveCollisionsWith(const std::shared_ptr<Polygon>& other, double timeStep);
     void updateVelocities(double timeStep);
     void applyGroundFriction(double groundY, const Eigen::Vector3d& gravity, double timeStep);
     void step(
@@ -38,7 +38,7 @@ private:
     std::vector<std::shared_ptr<Spring>> springs;
     double collisionThickness = 0.08;
 
-    void generateRegularPolygon(const Eigen::Vector3d& center, int numEdges, double width, double height);
+    void generateRegularPolygon(const Eigen::Vector3d& center, int numEdges, double width, double height, double rotation);
 };
 
 #endif
