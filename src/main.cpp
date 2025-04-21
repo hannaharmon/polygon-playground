@@ -12,6 +12,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 
+#include "PolygonFactory.h"
 #include "Polygon.h"
 
 using namespace std;
@@ -27,19 +28,9 @@ const double damping = 0.98;
 vector<shared_ptr<Polygon>> polygons;
 
 void initBlocks() {
-    // Upright square
-    polygons.push_back(make_shared<Polygon>(
-        Vector3d(0, 1.0, 0),
-        4,                  // numEdges
-        0.8, 0.4,           // width, height
-        M_PI / 4            // rotate it into upright position
-    ));
-    polygons.push_back(make_shared<Polygon>(
-        Vector3d(0, 2.0, 0),
-        4,                  // numEdges
-        0.8, 0.4,           // width, height
-        M_PI / 4            // rotate it into upright position
-    ));
+    // Stack of 5 upright jello blocks
+    auto stack = PolygonFactory::CreateStackedRectangles(Vector3d(0, -.8, 0), 3, 0.8, 0.4);
+    polygons.insert(polygons.end(), stack.begin(), stack.end());
 }
 
 void display(GLFWwindow* window) {
