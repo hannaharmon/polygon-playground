@@ -36,7 +36,7 @@ void LoadScene(int key) {
 
 void initScenes() {
     sceneManager.RegisterScene(1, []() {
-        return PolygonFactory::CreateStackedRectangles(Vector3d(0, 0.5, 0), 5, 0.8, 0.4);
+        return PolygonFactory::CreateStackedRectangles(Vector3d(0, -.8, 0), 4, 0.8, 0.4);
         });
 
     sceneManager.RegisterScene(2, []() {

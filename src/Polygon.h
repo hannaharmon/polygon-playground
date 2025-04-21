@@ -14,14 +14,15 @@ struct Edge {
     std::shared_ptr<Particle> p1;
 };
 
-class Polygon {
+class Polygon : public std::enable_shared_from_this<Polygon> {
 public:
     Polygon(const Eigen::Vector3d& pos, int numEdges, double width, double height, double rotation = 0.0);
     void applyForces(double timeStep, const Eigen::Vector3d& gravity, double damping);
     void resolveCollisionsWith(const std::shared_ptr<Polygon>& other, double timeStep);
     void updateVelocities(double timeStep);
     double getTotalMass() const;
-    void applyGroundFriction(double groundY, const Eigen::Vector3d& gravity, double timeStep);
+    double computeEffectiveNormalForce(const std::vector<std::shared_ptr<Polygon>>& others);
+    void applyGroundFriction(double groundY, const Eigen::Vector3d& gravity, double timeStep, std::vector<std::shared_ptr<Polygon>> others);
     void step(
         double timeStep,
         int springIters,
@@ -32,11 +33,12 @@ public:
         double damping
     );
     void draw(bool drawParticles = false, bool drawSprings = false, bool drawEdges = true) const;
+    bool isAbove(const std::shared_ptr<Polygon>& other) const;
+    std::vector<std::shared_ptr<Particle>> particles;
+    std::vector<std::shared_ptr<Spring>> springs;
 
 private:
     std::vector<Edge> edges;
-    std::vector<std::shared_ptr<Particle>> particles;
-    std::vector<std::shared_ptr<Spring>> springs;
     double collisionThickness = 0.08;
 
     void generateRegularPolygon(const Eigen::Vector3d& center, int numEdges, double width, double height, double rotation);

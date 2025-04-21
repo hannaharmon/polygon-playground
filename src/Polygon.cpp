@@ -71,6 +71,16 @@ void Polygon::applyForces(double timeStep, const Vector3d& gravity, double dampi
     }
 }
 
+bool Polygon::isAbove(const std::shared_ptr<Polygon>& other) const {
+    // Simple Y-based check: average center of mass
+    double thisY = 0.0, otherY = 0.0;
+    for (auto& p : particles) thisY += p->x.y();
+    for (auto& p : other->particles) otherY += p->x.y();
+    thisY /= particles.size();
+    otherY /= other->particles.size();
+    return thisY > otherY + 0.01; // small bias
+}
+
 void Polygon::resolveCollisionsWith(const std::shared_ptr<Polygon>& other, double timeStep) {
     for (const auto& edge : edges) {
         Vector3d a = edge.p0->x;
@@ -118,31 +128,20 @@ void Polygon::resolveCollisionsWith(const std::shared_ptr<Polygon>& other, doubl
                 // --- Tangential Friction ---
                 Vector3d edgeVel = 0.5 * (edge.p0->v + edge.p1->v);
                 Vector3d relVel = p->v - edgeVel;
-
-                Vector3d vnVec = relVel.dot(n) * n;
-                Vector3d vt = relVel - vnVec;
+                double vn = relVel.dot(n);
+                Vector3d vt = relVel - vn * n;
 
                 if (vt.norm() > 1e-6) {
-                    double mu = 0.6;
+                    double mu = 0.9;
+                    double normalForce = getTotalMass() * 9.8;
+                    double maxImpulse = mu * normalForce * timeStep;
 
-                    // Use dynamic friction if significant normal contact
-                    double frictionMag = mu * std::abs(vRelNormal);
+                    // Apply just enough impulse to cancel relative tangential motion
+                    Vector3d frictionImpulse = -vt.normalized() * std::min(vt.norm(), maxImpulse);
 
-                    // Fallback if vRelNormal is tiny (almost at rest) — simulate static friction
-                    if (std::abs(vRelNormal) < 1e-4) {
-                        frictionMag = mu * penetration / timeStep;
-                    }
-
-                    frictionMag = std::min(frictionMag, vt.norm());
-
-                    Vector3d frictionImpulse = -frictionMag * vt.normalized();
-
-                    if (!p->fixed)
-                        p->v += frictionImpulse * (wp / wsum);
-                    if (!edge.p0->fixed)
-                        edge.p0->v -= frictionImpulse * (w0 / wsum);
-                    if (!edge.p1->fixed)
-                        edge.p1->v -= frictionImpulse * (w1 / wsum);
+                    if (!p->fixed) p->v += frictionImpulse * (wp / wsum);
+                    if (!edge.p0->fixed) edge.p0->v -= frictionImpulse * (w0 / wsum);
+                    if (!edge.p1->fixed) edge.p1->v -= frictionImpulse * (w1 / wsum);
                 }
 
             }
@@ -157,6 +156,19 @@ double Polygon::getTotalMass() const {
     return mass;
 }
 
+double Polygon::computeEffectiveNormalForce(const std::vector<std::shared_ptr<Polygon>>& others) {
+    double totalMassAbove = getTotalMass();
+
+    for (const auto& other : others) {
+        if (other.get() != this && other->isAbove(shared_from_this())) {
+            totalMassAbove += other->getTotalMass();
+        }
+    }
+
+    return totalMassAbove * 9.8;
+}
+
+
 
 void Polygon::updateVelocities(double timeStep) {
     for (auto& p : particles) {
@@ -167,14 +179,22 @@ void Polygon::updateVelocities(double timeStep) {
             p->v.x() = 0;
         }
     }
+    const double linearThreshold = 0.05;
+
+    for (auto& p : particles) {
+        if (!p->fixed && p->v.norm() < linearThreshold) {
+            p->v = Vector3d::Zero();
+        }
+    }
+
 }
 
-void Polygon::applyGroundFriction(double groundY, const Vector3d& gravity, double timeStep) {
+void Polygon::applyGroundFriction(double groundY, const Vector3d& gravity, double timeStep, std::vector<std::shared_ptr<Polygon>> others) {
     double mu = 0.8;
 
     // Compute total downward force on the polygon
     double totalMass = getTotalMass();
-    double normalForce = totalMass * gravity.norm();
+    double normalForce = computeEffectiveNormalForce(others);
     double maxFriction = mu * normalForce * timeStep;
 
     // Identify how many particles are in contact with the ground
@@ -262,7 +282,8 @@ void Polygon::step(
     updateVelocities(timeStep);
 
     // 6. Ground friction
-    applyGroundFriction(groundY, gravity, timeStep);
+    applyGroundFriction(groundY, gravity, timeStep, others);
+
 }
 
 void drawPolygonOffset(
@@ -317,7 +338,7 @@ void Polygon::draw(bool drawParticles, bool drawSprings, bool drawEdges) const {
         glEnd();
     }
 
-	// springs
+    // springs
     if (drawSprings) {
         glLineWidth(1);
         glBegin(GL_LINES);
