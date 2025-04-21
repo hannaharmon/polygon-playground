@@ -50,13 +50,12 @@ void Polygon::generateRegularPolygon(const Vector3d& center, int numEdges, doubl
         }
     }
 
-    // Min edge length
-    double minLength = std::numeric_limits<double>::max();
+    double totalLength = 0.0;
     for (const auto& edge : edges) {
-        double len = (edge.p0->x - edge.p1->x).norm();
-        if (len < minLength) minLength = len;
+        totalLength += (edge.p0->x - edge.p1->x).norm();
     }
-    collisionThickness = 0.5 * minLength;
+    double avgLength = totalLength / edges.size();
+    collisionThickness = 0.5 * avgLength; // More conservative, consistent
 }
 
 
@@ -98,7 +97,7 @@ void Polygon::resolveCollisionsWith(const std::shared_ptr<Polygon>& other, doubl
 
             Vector3d delta = p->x - closest;
             double dist = delta.norm();
-            double minDist = std::max(collisionThickness, other->collisionThickness);
+            double minDist = std::min(collisionThickness, other->collisionThickness);
 
             if (dist < minDist && dist > 1e-6) {
                 Vector3d n = delta.normalized();
@@ -112,12 +111,21 @@ void Polygon::resolveCollisionsWith(const std::shared_ptr<Polygon>& other, doubl
                 if (wsum < 1e-8) continue;
 
                 // --- Position Correction (normal) ---
+                // Position correction only in normal direction (avoid shearing)
+                Vector3d correction = n * penetration;
                 if (!p->fixed)
-                    p->x += n * (penetration * wp / wsum);
+                    p->x += correction * (wp / wsum);
                 if (!edge.p0->fixed)
-                    edge.p0->x -= n * (penetration * w0 / wsum);
+                    edge.p0->x -= correction * (w0 / wsum);
                 if (!edge.p1->fixed)
-                    edge.p1->x -= n * (penetration * w1 / wsum);
+                    edge.p1->x -= correction * (w1 / wsum);
+                // Kill residual tangential drift due to numerical correction
+                double tangentialDrift = (p->x - p->p).dot(n.unitOrthogonal());
+                if (std::abs(tangentialDrift) < 1e-2) {
+                    Vector3d tangent = n.unitOrthogonal();
+                    p->x -= tangent * tangentialDrift;
+                }
+
 
                 // --- Normal velocity damping ---
                 double vRelNormal = p->v.dot(n);
@@ -179,7 +187,7 @@ void Polygon::updateVelocities(double timeStep) {
             p->v.x() = 0;
         }
     }
-    const double linearThreshold = 0.05;
+    const double linearThreshold = 0.1;
 
     for (auto& p : particles) {
         if (!p->fixed && p->v.norm() < linearThreshold) {
@@ -362,6 +370,17 @@ void Polygon::draw(bool drawParticles, bool drawSprings, bool drawEdges) const {
         glEnd();
     }
 
-    drawPolygonOffset(particles, .04f, true, Eigen::Vector3f(0.0f, 0.5f, 1.0f));
-    drawPolygonOffset(particles, .04, false, Eigen::Vector3f(1, 1, 1));
+    // Approximate size
+    float totalLen = 0;
+    for (size_t i = 0; i < particles.size(); ++i) {
+        const auto& a = particles[i]->x;
+        const auto& b = particles[(i + 1) % particles.size()]->x;
+        totalLen += (a - b).head<2>().norm(); // 2D length
+    }
+    float avgLen = totalLen / particles.size();
+    float offset = 0.25f * avgLen;
+
+
+    drawPolygonOffset(particles, offset, true, Eigen::Vector3f(0.0f, 0.5f, 1.0f));
+    drawPolygonOffset(particles, offset, false, Eigen::Vector3f(1, 1, 1));
 }
