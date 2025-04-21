@@ -89,8 +89,11 @@ void display(GLFWwindow* window) {
     }
 }
 
-void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     if (action == GLFW_PRESS) {
+        if (key == GLFW_KEY_ESCAPE) {
+            glfwSetWindowShouldClose(window, GL_TRUE);
+        }
         if (key >= GLFW_KEY_0 && key <= GLFW_KEY_9) {
             int sceneIndex = key - GLFW_KEY_0;
 			LoadScene(sceneIndex);
@@ -125,7 +128,7 @@ int main() {
 
     initScenes();
 
-    glfwSetKeyCallback(window, KeyCallback);
+    glfwSetKeyCallback(window, key_callback);
 
     while (!glfwWindowShouldClose(window)) {
         display(window);
