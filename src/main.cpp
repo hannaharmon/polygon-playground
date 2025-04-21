@@ -28,6 +28,25 @@ const double damping = 0.98;
 // Globals
 SceneManager sceneManager;
 vector<shared_ptr<Polygon>> polygons;
+GLFWwindow* window;
+
+void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
+    glViewport(0, 0, width, height);
+
+    float aspect = width / (float)height;
+
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+
+    if (aspect >= 1.0f) {
+        glOrtho(-2.0f * aspect, 2.0f * aspect, -2.0f, 2.0f, -1.0f, 1.0f);
+    }
+    else {
+        glOrtho(-2.0f, 2.0f, -2.0f / aspect, 2.0f / aspect, -1.0f, 1.0f);
+    }
+
+    glMatrixMode(GL_MODELVIEW);
+}
 
 void LoadScene(int key) {
 	sceneManager.LoadScene(key);
@@ -85,12 +104,10 @@ int main() {
         return -1;
     }
 
-    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
-    const GLFWvidmode* mode = glfwGetVideoMode(monitor);
-    GLFWwindow* window = glfwCreateWindow(1200, 800, "Polygon Playground", NULL, NULL);
-
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+    window = glfwCreateWindow(1280, 720, "Polygon Viewer", nullptr, nullptr);
     if (!window) {
-        cerr << "Failed to open GLFW window" << endl;
+        std::cerr << "Failed to create window\n";
         glfwTerminate();
         return -1;
     }
@@ -99,10 +116,12 @@ int main() {
     glewExperimental = true;
     glewInit();
 
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glOrtho(-2, 2, -2, 2, -1, 1); // keep logical coordinates fixed
-    glMatrixMode(GL_MODELVIEW);
+    // Set up initial viewport and projection
+    int fbWidth, fbHeight;
+    glfwGetFramebufferSize(window, &fbWidth, &fbHeight);
+    framebuffer_size_callback(window, fbWidth, fbHeight);
+
+    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
     initScenes();
 
