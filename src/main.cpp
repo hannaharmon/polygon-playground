@@ -46,6 +46,8 @@ bool grabActive = false;
 Eigen::Vector2f grabStartCenterOffset;
 Eigen::Vector2f grabCurrent;
 
+enum class Tool { None, View, Flick, Grab, Select, Pencil, Eraser };
+Tool currentTool = Tool::Flick;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
@@ -88,81 +90,86 @@ Eigen::Vector2f screenToWorld(GLFWwindow* window, double sx, double sy) {
     return Eigen::Vector2f(worldX, worldY);
 }
 
-void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
-    // Flick
-    if (button == GLFW_MOUSE_BUTTON_RIGHT && !grabActive) {
-        if (action == GLFW_PRESS) {
-            double sx, sy;
-            glfwGetCursorPos(window, &sx, &sy);
-            Eigen::Vector2f worldClick = screenToWorld(window, sx, sy);
+void character_callback(GLFWwindow* window, unsigned int codepoint) {
+    switch (codepoint) {
+    case 's': currentTool = Tool::Select; break;
+    case 'f': currentTool = Tool::Flick; break;
+    case 'g': currentTool = Tool::Grab; break;
+    case 'p': currentTool = Tool::Pencil; break;
+    case 'e': currentTool = Tool::Eraser; break;
+    case 'v': currentTool = Tool::View; break;
+    default: break;
+    }
+}
 
-            for (auto& poly : polygons) {
-                if (poly->containsPoint(worldClick, 0.05f)) { // Use same offset as drawPolygonOffset
-					selectedPolygon = poly;
-                    flickActive = true;
-                    poly->outlineColor = Eigen::Vector3f(1.0f, 1.0f, 0.0f);
-                    flickStartCenterOffset = worldClick - poly->getCenter(); // relative to shape
-                    flickCurrent = worldClick;
-                    break;
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
+    double sx, sy;
+    glfwGetCursorPos(window, &sx, &sy);
+    Eigen::Vector2f worldClick = screenToWorld(window, sx, sy);
+
+    switch (currentTool) {
+    case Tool::Flick:
+        if (button == GLFW_MOUSE_BUTTON_LEFT) {
+            if (action == GLFW_PRESS) {
+                for (auto& poly : polygons) {
+                    if (poly->containsPoint(worldClick, 0.05f)) {
+                        selectedPolygon = poly;
+                        flickActive = true;
+                        poly->outlineColor = Eigen::Vector3f(1.0f, 1.0f, 0.0f);
+                        flickStartCenterOffset = worldClick - poly->getCenter();
+                        flickCurrent = worldClick;
+                        break;
+                    }
                 }
             }
-        }
-
-        else if (action == GLFW_RELEASE) {
-            flickActive = false;
-            if (selectedPolygon) {
+            else if (action == GLFW_RELEASE && selectedPolygon) {
+                flickActive = false;
                 Eigen::Vector2f center = selectedPolygon->getCenter();
                 Eigen::Vector2f flickStartWorld = center + flickStartCenterOffset;
                 Eigen::Vector2f flickDir = flickStartWorld - flickCurrent;
-
                 if (flickDir.norm() > 1e-4) {
-                    selectedPolygon->applyImpulseAt(flickStartWorld, flickDir * 20.0f); // tune scale
+                    selectedPolygon->applyImpulseAt(flickStartWorld, flickDir * 20.0f);
                 }
-
-                selectedPolygon->outlineColor = selectedPolygon->defaultOutlineColor;
-                selectedPolygon = nullptr;
-                flickActive = false;
-            }
-        }
-
-    }
-
-    // Grab
-    else if (button == GLFW_MOUSE_BUTTON_LEFT && !flickActive) {
-        if (action == GLFW_PRESS) {
-            double sx, sy;
-            glfwGetCursorPos(window, &sx, &sy);
-            Eigen::Vector2f worldClick = screenToWorld(window, sx, sy);
-
-            for (auto& poly : polygons) {
-                if (poly->containsPoint(worldClick, 0.05f)) { // Use same offset as drawPolygonOffset
-                    selectedPolygon = poly;
-                    grabActive = true;
-                    poly->outlineColor = Eigen::Vector3f(0.0f, 1.0f, 0.0f);
-                    grabStartCenterOffset = worldClick - poly->getCenter(); // relative to shape
-                    grabCurrent = worldClick;
-                    break;
-                }
-            }
-        }
-
-        else if (action == GLFW_RELEASE) {
-            grabActive = false;
-            if (selectedPolygon) {
-                // Don't have to do anything on release of grab
                 selectedPolygon->outlineColor = selectedPolygon->defaultOutlineColor;
                 selectedPolygon = nullptr;
             }
         }
+        break;
+
+    case Tool::Grab:
+        if (button == GLFW_MOUSE_BUTTON_LEFT) {
+            if (action == GLFW_PRESS) {
+                for (auto& poly : polygons) {
+                    if (poly->containsPoint(worldClick, 0.05f)) {
+                        selectedPolygon = poly;
+                        grabActive = true;
+                        poly->outlineColor = Eigen::Vector3f(0.0f, 1.0f, 0.0f);
+                        grabStartCenterOffset = worldClick - poly->getCenter();
+                        grabCurrent = worldClick;
+                        break;
+                    }
+                }
+            }
+            else if (action == GLFW_RELEASE && selectedPolygon) {
+                grabActive = false;
+                selectedPolygon->outlineColor = selectedPolygon->defaultOutlineColor;
+                selectedPolygon = nullptr;
+            }
+        }
+        break;
+
+    default:
+        break;
     }
 }
 
 void cursor_position_callback(GLFWwindow* window, double xpos, double ypos) {
+    Eigen::Vector2f world = screenToWorld(window, xpos, ypos);
     if (flickActive) {
-        flickCurrent = screenToWorld(window, xpos, ypos);
+        flickCurrent = world;
     }
-    else if (grabActive) {
-        grabCurrent = screenToWorld(window, xpos, ypos);
+    if (grabActive) {
+        grabCurrent = world;
     }
 }
 
@@ -283,6 +290,7 @@ int main() {
     initScenes();
 
     glfwSetKeyCallback(window, key_callback);
+    glfwSetCharCallback(window, character_callback);
     glfwSetMouseButtonCallback(window, mouse_button_callback);
     glfwSetCursorPosCallback(window, cursor_position_callback);
 
