@@ -226,6 +226,19 @@ void display(GLFWwindow* window) {
         glVertex2f(start.x(), start.y());
         glVertex2f(grabCurrent.x(), grabCurrent.y());
         glEnd();
+
+        // Apply grab force
+        if (grabActive && selectedPolygon) {
+            Eigen::Vector2f grabWorldStart = selectedPolygon->getCenter() + grabStartCenterOffset;
+            Eigen::Vector2f pullVec = grabCurrent - grabWorldStart;
+
+            if (pullVec.norm() > 1e-4f) {
+                float stiffness = 30.0f; // can tweak
+                Eigen::Vector2f force = pullVec * stiffness * timeStep;
+
+                selectedPolygon->applyImpulseAt(grabWorldStart, force);
+            }
+        }
     }
 
 }
