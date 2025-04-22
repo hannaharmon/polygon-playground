@@ -20,6 +20,7 @@
 #include "SceneManager.h"
 #include "PolygonFactory.h"
 #include "Polygon.h"
+#include "Particle.h"
 
 using namespace std;
 using namespace Eigen;
@@ -35,14 +36,14 @@ SceneManager sceneManager;
 vector<shared_ptr<Polygon>> polygons;
 GLFWwindow* window;
 
-shared_ptr<Polygon> selectedPolygon = nullptr;
+std::shared_ptr<Polygon> selectedPolygon = nullptr;
 
 bool flickActive = false;
-Eigen::Vector2f flickStart;
+Eigen::Vector2f flickStartCenterOffset;
 Eigen::Vector2f flickCurrent;
 
 bool grabActive = false;
-Eigen::Vector2f grabStart;
+Eigen::Vector2f grabStartCenterOffset;
 Eigen::Vector2f grabCurrent;
 
 
@@ -97,11 +98,11 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 
             for (auto& poly : polygons) {
                 if (poly->containsPoint(worldClick, 0.05f)) { // Use same offset as drawPolygonOffset
-                    flickStart = worldClick;
-                    flickCurrent = worldClick;
-                    flickActive = true;
 					selectedPolygon = poly;
+                    flickActive = true;
                     poly->outlineColor = Eigen::Vector3f(1.0f, 1.0f, 0.0f);
+                    flickStartCenterOffset = worldClick - poly->getCenter(); // relative to shape
+                    flickCurrent = worldClick;
                     break;
                 }
             }
@@ -110,17 +111,17 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
         else if (action == GLFW_RELEASE) {
             flickActive = false;
             if (selectedPolygon) {
-                // Compute the flick vector (from current to start — opposite direction)
-                Eigen::Vector2f delta = flickStart - flickCurrent;
+                Eigen::Vector2f center = selectedPolygon->getCenter();
+                Eigen::Vector2f flickStartWorld = center + flickStartCenterOffset;
+                Eigen::Vector2f flickDir = flickStartWorld - flickCurrent;
 
-                // Scale the impulse (tweak the scale factor as needed)
-                float impulseStrength = 5.0f; // You can tune this
-                Eigen::Vector2f impulse = delta * impulseStrength;
-
-                selectedPolygon->applyImpulseAt(flickStart, impulse);
+                if (flickDir.norm() > 1e-4) {
+                    selectedPolygon->applyImpulseAt(flickStartWorld, flickDir * 20.0f); // tune scale
+                }
 
                 selectedPolygon->outlineColor = selectedPolygon->defaultOutlineColor;
                 selectedPolygon = nullptr;
+                flickActive = false;
             }
         }
 
@@ -135,11 +136,11 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 
             for (auto& poly : polygons) {
                 if (poly->containsPoint(worldClick, 0.05f)) { // Use same offset as drawPolygonOffset
-                    grabStart = worldClick;
-                    grabCurrent = worldClick;
+                    selectedPolygon = poly;
                     grabActive = true;
-					selectedPolygon = poly;
                     poly->outlineColor = Eigen::Vector3f(0.0f, 1.0f, 0.0f);
+                    grabStartCenterOffset = worldClick - poly->getCenter(); // relative to shape
+                    grabCurrent = worldClick;
                     break;
                 }
             }
@@ -148,6 +149,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
         else if (action == GLFW_RELEASE) {
             grabActive = false;
             if (selectedPolygon) {
+                // Don't have to do anything on release of grab
                 selectedPolygon->outlineColor = selectedPolygon->defaultOutlineColor;
                 selectedPolygon = nullptr;
             }
@@ -209,7 +211,8 @@ void display(GLFWwindow* window) {
         glColor3f(1.0f, 1.0f, 0.0f);
 
         glBegin(GL_LINES);
-        glVertex2f(flickStart.x(), flickStart.y());
+        Eigen::Vector2f start = selectedPolygon->getCenter() + flickStartCenterOffset;
+        glVertex2f(start.x(), start.y());
         glVertex2f(flickCurrent.x(), flickCurrent.y());
         glEnd();
     }
@@ -219,7 +222,8 @@ void display(GLFWwindow* window) {
         glColor3f(0.0f, 1.0f, 0.0f);
 
         glBegin(GL_LINES);
-        glVertex2f(grabStart.x(), grabStart.y());
+        Eigen::Vector2f start = selectedPolygon->getCenter() + grabStartCenterOffset;
+        glVertex2f(start.x(), start.y());
         glVertex2f(grabCurrent.x(), grabCurrent.y());
         glEnd();
     }

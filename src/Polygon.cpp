@@ -16,6 +16,15 @@ Polygon::Polygon(const Vector3d& pos, int numEdges, double width, double height,
     generateRegularPolygon(pos, numEdges, width, height, rotation);
 }
 
+Eigen::Vector2f Polygon::getCenter() const {
+    Eigen::Vector2f center(0, 0);
+    for (const auto& p : particles) {
+        center += Eigen::Vector2f(p->x.x(), p->x.y());
+    }
+    center /= (float)particles.size();
+    return center;
+}
+
 void Polygon::generateRegularPolygon(const Vector3d& center, int numEdges, double width, double height, double rotation) {
     double radiusX = width / 2.0;
     double radiusY = height / 2.0;
