@@ -33,7 +33,10 @@ public:
         double damping
     );
     void draw(bool drawParticles = true, bool drawSprings = true, bool drawEdges = true) const;
+    bool containsPoint(const Eigen::Vector2f& point, float extraOffset = 0.0f) const;
     bool isAbove(const std::shared_ptr<Polygon>& other) const;
+    Eigen::Vector3f defaultOutlineColor = Eigen::Vector3f(1.0f, 1.0f, 1.0f);
+    Eigen::Vector3f outlineColor = defaultOutlineColor;
     std::vector<std::shared_ptr<Particle>> particles;
     std::vector<std::shared_ptr<Spring>> springs;
 

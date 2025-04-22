@@ -333,6 +333,43 @@ void drawPolygonOffset(
     glEnd();
 }
 
+bool Polygon::containsPoint(const Eigen::Vector2f& point, float extraOffset) const {
+    using Vec2 = Eigen::Vector2f;
+
+    // Get center
+    Vec2 center(0, 0);
+    for (auto& p : particles) {
+        center += Vec2(p->x.x(), p->x.y());
+    }
+    center /= particles.size();
+
+    // Compute shifted polygon with same offset used in drawPolygonOffset
+    vector<Vec2> shifted;
+    float offset = extraOffset;
+
+    for (auto& p : particles) {
+        Vec2 pos(p->x.x(), p->x.y());
+        Vec2 dir = (pos - center).normalized();
+        shifted.push_back(pos + dir * offset);
+    }
+
+    // Point-in-polygon test (ray casting)
+    bool inside = false;
+    int n = shifted.size();
+    for (int i = 0, j = n - 1; i < n; j = i++) {
+        const Vec2& a = shifted[i];
+        const Vec2& b = shifted[j];
+
+        bool intersect = ((a.y() > point.y()) != (b.y() > point.y())) &&
+            (point.x() < (b.x() - a.x()) * (point.y() - a.y()) / (b.y() - a.y() + 1e-8f) + a.x());
+        if (intersect)
+            inside = !inside;
+    }
+
+    return inside;
+}
+
+
 void Polygon::draw(bool drawParticles, bool drawSprings, bool drawEdges) const {
 
     // particles
@@ -381,6 +418,6 @@ void Polygon::draw(bool drawParticles, bool drawSprings, bool drawEdges) const {
     float offset = .5 * .1;
 
 
-    drawPolygonOffset(particles, offset, true, Eigen::Vector3f(0.0f, 0.5f, 1.0f));
-    drawPolygonOffset(particles, offset, false, Eigen::Vector3f(1, 1, 1));
+    drawPolygonOffset(particles, .04f, true, Eigen::Vector3f(0.0f, 0.5f, 1.0f));
+    drawPolygonOffset(particles, .04f, false, outlineColor);
 }
