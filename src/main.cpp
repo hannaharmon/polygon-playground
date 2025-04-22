@@ -49,6 +49,11 @@ Eigen::Vector2f grabCurrent;
 enum class Tool { None, View, Flick, Grab, Select, Pencil, Eraser };
 Tool currentTool = Tool::Flick;
 
+GLFWcursor* arrowCursor;
+GLFWcursor* handCursor;
+GLFWcursor* crosshairCursor;
+GLFWcursor* ibeamCursor;
+
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
 
@@ -92,12 +97,30 @@ Eigen::Vector2f screenToWorld(GLFWwindow* window, double sx, double sy) {
 
 void character_callback(GLFWwindow* window, unsigned int codepoint) {
     switch (codepoint) {
-    case 's': currentTool = Tool::Select; break;
-    case 'f': currentTool = Tool::Flick; break;
-    case 'g': currentTool = Tool::Grab; break;
-    case 'p': currentTool = Tool::Pencil; break;
-    case 'e': currentTool = Tool::Eraser; break;
-    case 'v': currentTool = Tool::View; break;
+    case 's': 
+        currentTool = Tool::Select; 
+        glfwSetCursor(window, arrowCursor);
+        break;
+    case 'f': 
+        currentTool = Tool::Flick; 
+        glfwSetCursor(window, crosshairCursor);
+        break;
+    case 'g': 
+        currentTool = Tool::Grab; 
+        glfwSetCursor(window, handCursor);
+        break;
+    case 'p': 
+        currentTool = Tool::Pencil;
+        glfwSetCursor(window, ibeamCursor);
+        break;
+    case 'e': 
+        currentTool = Tool::Eraser;
+        glfwSetCursor(window, arrowCursor);
+        break;
+    case 'v': 
+        currentTool = Tool::View; 
+        glfwSetCursor(window, arrowCursor);
+        break;
     default: break;
     }
 }
@@ -279,6 +302,11 @@ int main() {
     glfwMakeContextCurrent(window);
     glewExperimental = true;
     glewInit();
+
+    arrowCursor = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
+    handCursor = glfwCreateStandardCursor(GLFW_HAND_CURSOR);
+    crosshairCursor = glfwCreateStandardCursor(GLFW_CROSSHAIR_CURSOR);
+    ibeamCursor = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
 
     // Set up initial viewport and projection
     int fbWidth, fbHeight;
