@@ -110,10 +110,20 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
         else if (action == GLFW_RELEASE) {
             flickActive = false;
             if (selectedPolygon) {
+                // Compute the flick vector (from current to start — opposite direction)
+                Eigen::Vector2f delta = flickStart - flickCurrent;
+
+                // Scale the impulse (tweak the scale factor as needed)
+                float impulseStrength = 5.0f; // You can tune this
+                Eigen::Vector2f impulse = delta * impulseStrength;
+
+                selectedPolygon->applyImpulseAt(flickStart, impulse);
+
                 selectedPolygon->outlineColor = selectedPolygon->defaultOutlineColor;
                 selectedPolygon = nullptr;
             }
         }
+
     }
 
     // Grab

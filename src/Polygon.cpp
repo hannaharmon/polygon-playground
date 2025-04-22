@@ -369,6 +369,18 @@ bool Polygon::containsPoint(const Eigen::Vector2f& point, float extraOffset) con
     return inside;
 }
 
+void Polygon::applyImpulseAt(const Eigen::Vector2f& worldPoint, const Eigen::Vector2f& impulse2D) {
+    for (auto& p : particles) {
+        if (!p->fixed) {
+            Eigen::Vector2f pos2D(p->x.x(), p->x.y());
+            float distance = (pos2D - worldPoint).norm();
+            float weight = 1.0f / (1.0f + distance); // Inverse distance weighting
+
+            Eigen::Vector3d impulse3D(impulse2D.x(), impulse2D.y(), 0.0);
+            p->v += weight * impulse3D / p->m;
+        }
+    }
+}
 
 void Polygon::draw(bool drawParticles, bool drawSprings, bool drawEdges) const {
 
