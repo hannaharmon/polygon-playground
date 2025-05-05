@@ -443,7 +443,7 @@ void Polygon::step(
     // 2. Resolve overlaps
     for (int k = 0; k < collisionIters; ++k) {
         for (auto& other : others) {
-            if (other.get() != this) {
+            if (this < other.get()) {
                 resolveCollisionsWith(other, timeStep);
             }
         }
