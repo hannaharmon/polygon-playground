@@ -46,6 +46,10 @@ SceneManager sceneManager;
 vector<shared_ptr<Polygon>> polygons;
 GLFWwindow* window;
 
+double lastEraserTime = 0.0;
+double lastPencilTime = 0.0;
+const double toolRepeatDelay = 0.5;  // seconds between actions
+
 // Colors
 const Eigen::Vector4f flickOutlineColor(1.0f, 1.0f, 0.0f, 1.0f); // yellow
 const Eigen::Vector4f grabOutlineColor(0.0f, 1.0f, 0.0f, 1.0f);  // green
@@ -452,6 +456,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
                     pencilRotation
                 )
             );
+            lastPencilTime = glfwGetTime(); // Prevent immediate double-spawn
         }
         if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
             pencilSides = (pencilSides % 8) + 3; // cycle 3–10 sides
@@ -537,9 +542,39 @@ void cursor_position_callback(GLFWwindow* window, double xpos, double ypos) {
     }
     pencilMousePos = screenToWorld(window, xpos, ypos);
     if (currentTool == Tool::Eraser) {
+        if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+            double now = glfwGetTime();
+            if (now - lastEraserTime >= toolRepeatDelay) {
+                std::shared_ptr<Polygon> clickedPolygon = nullptr;
+
+                for (auto& poly : polygons) {
+                    if (poly->containsPoint(world, 0.05f)) {
+                        clickedPolygon = poly;
+                        break;
+                    }
+                }
+
+                if (clickedPolygon) {
+                    bool isSelected = std::find(selectedPolygons.begin(), selectedPolygons.end(), clickedPolygon) != selectedPolygons.end();
+
+                    if (isSelected) {
+                        for (const auto& poly : selectedPolygons) {
+                            polygons.erase(std::remove(polygons.begin(), polygons.end(), poly), polygons.end());
+                        }
+                        selectedPolygons.clear();
+                    }
+                    else {
+                        polygons.erase(std::remove(polygons.begin(), polygons.end(), clickedPolygon), polygons.end());
+                        clearSelection();
+                    }
+
+                    lastEraserTime = now;
+                }
+            }
+        }
+
         updateEraserHoverOutlines(world);
     }
-
 }
 
 void LoadScene(int key) {
@@ -726,6 +761,26 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     }
 }
 
+void handlePencilToolRepeat(GLFWwindow* window) {
+    if (currentTool != Tool::Pencil) return;
+
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+        double now = glfwGetTime();
+        if (now - lastPencilTime >= toolRepeatDelay) {
+            polygons.push_back(
+                PolygonFactory::CreateRegularPolygon(
+                    Vector3d(pencilMousePos.x(), pencilMousePos.y(), 0.0),
+                    pencilSides,
+                    pencilSizeX, pencilSizeY,
+                    pencilRotation
+                )
+            );
+            lastPencilTime = now;
+        }
+    }
+}
+
+
 int main() {
     if (!glfwInit()) {
         cerr << "Failed to initialize GLFW" << endl;
@@ -770,6 +825,7 @@ int main() {
     glfwSetScrollCallback(window, scroll_callback);
 
     while (!glfwWindowShouldClose(window)) {
+        handlePencilToolRepeat(window);
         display(window);
         glfwSwapBuffers(window);
         glfwPollEvents();
