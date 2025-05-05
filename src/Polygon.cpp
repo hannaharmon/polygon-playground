@@ -5,6 +5,7 @@
 #include <GL/glew.h>
 #include <cmath>
 #include <iostream>
+#include <algorithm>  // for std::find
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -17,6 +18,34 @@ Polygon::Polygon(const Vector3d& pos, int numEdges, double width, double height,
     generateRegularPolygon(pos, numEdges, width, height, rotation);
 }
 
+
+Polygon::Polygon(const Polygon& other)
+    : fillColor(other.fillColor),
+    outlineColor(other.outlineColor),
+    defaultOutlineColor(other.defaultOutlineColor)
+{
+    // Step 1: Deep-copy particles
+    particles.reserve(other.particles.size());
+    for (const auto& p : other.particles) {
+        particles.push_back(std::make_shared<Particle>(*p));  // clone the particle
+    }
+
+    // Step 2: Deep-copy springs
+    springs.reserve(other.springs.size());
+    for (const auto& s : other.springs) {
+        // Find indices of spring endpoints in original polygon
+        auto it0 = std::find(other.particles.begin(), other.particles.end(), s->p0);
+        auto it1 = std::find(other.particles.begin(), other.particles.end(), s->p1);
+
+        assert(it0 != other.particles.end() && it1 != other.particles.end());
+        int i0 = static_cast<int>(std::distance(other.particles.begin(), it0));
+        int i1 = static_cast<int>(std::distance(other.particles.begin(), it1));
+
+        springs.push_back(std::make_shared<Spring>(particles[i0], particles[i1], s->alpha));
+    }
+}
+
+
 Eigen::Vector2f Polygon::getCenter() const {
     Eigen::Vector2f center(0, 0);
     for (const auto& p : particles) {
@@ -24,6 +53,17 @@ Eigen::Vector2f Polygon::getCenter() const {
     }
     center /= (float)particles.size();
     return center;
+}
+
+void Polygon::moveCenterTo(const Eigen::Vector3d& target) {
+    Eigen::Vector2f target2f = target.head<2>().cast<float>();
+    Eigen::Vector2f currentCenter = getCenter();
+    Eigen::Vector2f offset = target2f - currentCenter;
+
+    for (auto& p : particles) {
+        p->x.head<2>() += offset.cast<double>();
+        p->p.head<2>() += offset.cast<double>();
+    }
 }
 
 void Polygon::generateRegularPolygon(const Vector3d& center, int numEdges, double width, double height, double rotation) {

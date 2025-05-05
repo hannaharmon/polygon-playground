@@ -17,6 +17,7 @@ struct Edge {
 class Polygon : public std::enable_shared_from_this<Polygon> {
 public:
     Polygon(const Eigen::Vector3d& pos, int numEdges, double width, double height, double rotation = 0.0);
+    Polygon(const Polygon& other);  // deep copy
     void applyForces(double timeStep, const Eigen::Vector3d& gravity, double damping);
     void resolveCollisionsWith(const std::shared_ptr<Polygon>& other, double timeStep);
     void updateVelocities(double timeStep);
@@ -26,6 +27,7 @@ public:
 	void applyStackingFriction(const std::vector<std::shared_ptr<Polygon>>& others);
     bool isTouching(const std::shared_ptr<Polygon>& other) const;
     float getBoundingRadius() const;
+    void moveCenterTo(const Eigen::Vector3d& target);
     void applyGroundFriction(double groundY, const Eigen::Vector3d& gravity, double timeStep, std::vector<std::shared_ptr<Polygon>> others);
     void step(
         double timeStep,

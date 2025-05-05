@@ -56,6 +56,13 @@ bool panning = false;
 Eigen::Vector2f panStartWorld;
 Eigen::Vector2f panStartMouse;
 
+// Clipboard
+struct ClipboardEntry {
+    std::shared_ptr<Polygon> polygon;
+    Eigen::Vector2f offset;  // offset from group center
+};
+std::vector<ClipboardEntry> clipboard;
+
 
 // Colors
 const Eigen::Vector4f flickOutlineColor(1.0f, 1.0f, 0.0f, 1.0f); // yellow
@@ -850,6 +857,15 @@ void resetScene(GLFWwindow* window) {
     LoadScene(1);
 }
 
+Eigen::Vector2f computeGroupCenter(const std::vector<std::shared_ptr<Polygon>>& polys) {
+    if (polys.empty()) return Eigen::Vector2f(0, 0);
+
+    Eigen::Vector2f sum(0, 0);
+    for (const auto& poly : polys) {
+        sum += poly->getCenter();
+    }
+    return sum / polys.size();
+}
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     if (action == GLFW_PRESS) {
@@ -861,6 +877,111 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
             resetScene(window);
         }
 
+        // DELETE: Remove selected polygons
+        if (key == GLFW_KEY_DELETE) {
+            for (const auto& poly : selectedPolygons) {
+                polygons.erase(std::remove(polygons.begin(), polygons.end(), poly), polygons.end());
+            }
+            selectedPolygons.clear();
+        }
+
+        // COPY: Ctrl+C
+        if ((mods & GLFW_MOD_CONTROL) && key == GLFW_KEY_C) {
+            clipboard.clear();
+            if (selectedPolygons.empty()) return;
+
+            Eigen::Vector2f groupCenter = computeGroupCenter(selectedPolygons);
+
+            for (const auto& poly : selectedPolygons) {
+                auto copy = std::make_shared<Polygon>(*poly);
+                Eigen::Vector2f offset = poly->getCenter() - groupCenter;
+                clipboard.push_back({ copy, offset });
+            }
+        }
+
+        // CUT: Ctrl+X
+        if ((mods & GLFW_MOD_CONTROL) && key == GLFW_KEY_X) {
+            clipboard.clear();
+            if (selectedPolygons.empty()) return;
+
+            Eigen::Vector2f groupCenter = computeGroupCenter(selectedPolygons);
+
+            for (const auto& poly : selectedPolygons) {
+                auto copy = std::make_shared<Polygon>(*poly);
+                Eigen::Vector2f offset = poly->getCenter() - groupCenter;
+                clipboard.push_back({ copy, offset });
+            }
+
+            // Delete selected polygons
+            for (const auto& poly : selectedPolygons) {
+                polygons.erase(std::remove(polygons.begin(), polygons.end(), poly), polygons.end());
+            }
+            selectedPolygons.clear();
+        }
+
+
+        // PASTE: Ctrl+V
+        if ((mods & GLFW_MOD_CONTROL) && key == GLFW_KEY_V) {
+            if (clipboard.empty()) return;
+
+            double sx, sy;
+            glfwGetCursorPos(window, &sx, &sy);
+            Eigen::Vector2f cursorWorld = screenToWorld(window, sx, sy);
+
+            std::vector<std::shared_ptr<Polygon>> newPolygons;
+
+            for (const auto& entry : clipboard) {
+                auto clone = std::make_shared<Polygon>(*entry.polygon);
+                Eigen::Vector2f newCenter = cursorWorld + entry.offset;
+                clone->moveCenterTo(Vector3d(newCenter.x(), newCenter.y(), 0));
+                polygons.push_back(clone);
+                newPolygons.push_back(clone);
+            }
+
+            // Reselect pasted polygons
+            for (auto& poly : selectedPolygons) {
+                poly->outlineColor = poly->defaultOutlineColor;
+            }
+            selectedPolygons = newPolygons;
+            for (auto& poly : selectedPolygons) {
+                poly->outlineColor = selectedOutlineColor;
+            }
+        }
+
+
+
+        // DUPLICATE: Ctrl+D
+        if ((mods & GLFW_MOD_CONTROL) && key == GLFW_KEY_D) {
+            if (selectedPolygons.empty()) return;
+
+            double sx, sy;
+            glfwGetCursorPos(window, &sx, &sy);
+            Eigen::Vector2f cursorWorld = screenToWorld(window, sx, sy);
+
+            Eigen::Vector2f groupCenter = computeGroupCenter(selectedPolygons);
+
+            std::vector<std::shared_ptr<Polygon>> newPolygons;
+
+            for (const auto& poly : selectedPolygons) {
+                auto clone = std::make_shared<Polygon>(*poly);
+                Eigen::Vector2f offset = poly->getCenter() - groupCenter;
+                Eigen::Vector2f newCenter = cursorWorld + offset;
+                clone->moveCenterTo(Vector3d(newCenter.x(), newCenter.y(), 0));
+                polygons.push_back(clone);
+                newPolygons.push_back(clone);
+            }
+
+            // Reselect clones
+            for (auto& poly : selectedPolygons) {
+                poly->outlineColor = poly->defaultOutlineColor;
+            }
+            selectedPolygons = newPolygons;
+            for (auto& poly : selectedPolygons) {
+                poly->outlineColor = selectedOutlineColor;
+            }
+        }
+
+        // Tools
         switch (key) {
         case GLFW_KEY_1:
             switchTool(Tool::Eraser);
