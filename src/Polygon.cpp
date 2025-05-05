@@ -556,6 +556,23 @@ bool Polygon::containsPoint(const Eigen::Vector2f& point, float extraOffset) con
     return inside;
 }
 
+float Polygon::getBoundingRadius() const {
+    Eigen::Vector2f center = getCenter();
+    float maxDistSq = 0.0f;
+
+    for (const auto& p : particles) {
+        Eigen::Vector2f pos(p->x.x(), p->x.y());
+        float distSq = (pos - center).squaredNorm(); // more efficient than .norm()
+        if (distSq > maxDistSq) {
+            maxDistSq = distSq;
+        }
+    }
+
+    return std::sqrt(maxDistSq);
+}
+
+
+
 void Polygon::applyImpulseAt(const Eigen::Vector2f& worldPoint, const Eigen::Vector2f& impulse2D) {
     for (auto& p : particles) {
         if (!p->fixed) {

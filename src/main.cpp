@@ -46,26 +46,33 @@ SceneManager sceneManager;
 vector<shared_ptr<Polygon>> polygons;
 GLFWwindow* window;
 
-std::shared_ptr<Polygon> selectedPolygon = nullptr;
+Tool currentTool = Tool::Flick;
 
+Eigen::Vector2f normalizedOffset;
+
+// Flick globals
 bool flickActive = false;
 Eigen::Vector2f flickStartCenterOffset;
 Eigen::Vector2f flickCurrent;
 
+// Grab globals
 bool grabActive = false;
 Eigen::Vector2f grabStartCenterOffset;
 Eigen::Vector2f grabCurrent;
 
-Tool currentTool = Tool::Flick;
-
-std::vector<std::shared_ptr<Polygon>> selectedPolygons;
-
+// Pencil globals
 Eigen::Vector2f pencilMousePos;
 float pencilSizeX = 0.3f;
 float pencilSizeY = 0.3f;
 int pencilSides = 4;
 float pencilRotation = 0.0f;
 
+// Selection globals
+std::vector<std::shared_ptr<Polygon>> selectedPolygons;
+bool selecting = false;
+Eigen::Vector2f selectStart, selectEnd;
+
+// Cursors
 GLFWcursor* arrowCursor;
 GLFWcursor* handCursor;
 GLFWcursor* crosshairCursor;
@@ -194,52 +201,72 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
     case Tool::Flick:
         if (button == GLFW_MOUSE_BUTTON_LEFT) {
             if (action == GLFW_PRESS) {
-                for (auto& poly : polygons) {
-                    if (poly->containsPoint(worldClick, 0.05f)) {
-                        selectedPolygon = poly;
-                        flickActive = true;
-                        poly->outlineColor = Eigen::Vector4f(1.0f, 1.0f, 0.0f, 1.0f);
-                        flickStartCenterOffset = worldClick - poly->getCenter();
-                        flickCurrent = worldClick;
-                        break;
+                if (selectedPolygons.empty()) {
+                    for (auto& poly : polygons) {
+                        if (poly->containsPoint(worldClick, 0.05f)) {
+                            selectedPolygons = { poly };
+                            poly->outlineColor = Eigen::Vector4f(1.0f, 1.0f, 0.0f, 1.0f);
+                            break;
+                        }
                     }
                 }
-            }
-            else if (action == GLFW_RELEASE && selectedPolygon) {
-                flickActive = false;
-                Eigen::Vector2f center = selectedPolygon->getCenter();
-                Eigen::Vector2f flickStartWorld = center + flickStartCenterOffset;
-                Eigen::Vector2f flickDir = flickStartWorld - flickCurrent;
-                if (flickDir.norm() > 1e-4) {
-                    selectedPolygon->applyImpulseAt(flickStartWorld, flickDir * flickForceScale);
+                if (!selectedPolygons.empty()) {
+                    flickActive = true;
+                    Eigen::Vector2f rawOffset = worldClick - selectedPolygons[0]->getCenter();
+                    float baseRadius = selectedPolygons[0]->getBoundingRadius();
+                    Eigen::Vector2f normalizedOffset = rawOffset / baseRadius;
+                    flickCurrent = worldClick;
                 }
-                selectedPolygon->outlineColor = selectedPolygon->defaultOutlineColor;
-                selectedPolygon = nullptr;
+            }
+            else if (action == GLFW_RELEASE && flickActive) {
+                flickActive = false;
+                for (auto& poly : selectedPolygons) {
+                    float currentRadius = poly->getBoundingRadius();
+                    Eigen::Vector2f adjustedOffset = normalizedOffset * currentRadius;
+                    Eigen::Vector2f start = poly->getCenter() + adjustedOffset;
+                    Eigen::Vector2f dir = start - flickCurrent;
+
+                    if (dir.norm() > 1e-4) {
+                        poly->applyImpulseAt(start, dir * flickForceScale);
+                    }
+                    poly->outlineColor = poly->defaultOutlineColor;
+                }
+                selectedPolygons.clear();
             }
         }
         break;
 
+
     case Tool::Grab:
         if (button == GLFW_MOUSE_BUTTON_LEFT) {
             if (action == GLFW_PRESS) {
-                for (auto& poly : polygons) {
-                    if (poly->containsPoint(worldClick, 0.05f)) {
-                        selectedPolygon = poly;
-                        grabActive = true;
-                        poly->outlineColor = Eigen::Vector4f(0.0f, 1.0f, 0.0f, 1.0f);
-                        grabStartCenterOffset = worldClick - poly->getCenter();
-                        grabCurrent = worldClick;
-                        break;
+                if (selectedPolygons.empty()) {
+                    for (auto& poly : polygons) {
+                        if (poly->containsPoint(worldClick, 0.05f)) {
+                            selectedPolygons = { poly };
+                            poly->outlineColor = Eigen::Vector4f(0.0f, 1.0f, 0.0f, 1.0f);
+                            break;
+                        }
                     }
                 }
+                if (!selectedPolygons.empty()) {
+                    grabActive = true;
+                    Eigen::Vector2f rawOffset = worldClick - selectedPolygons[0]->getCenter();
+                    float baseRadius = selectedPolygons[0]->getBoundingRadius();
+                    Eigen::Vector2f normalizedOffset = rawOffset / baseRadius;
+                    grabCurrent = worldClick;
+                }
             }
-            else if (action == GLFW_RELEASE && selectedPolygon) {
+            else if (action == GLFW_RELEASE && grabActive) {
                 grabActive = false;
-                selectedPolygon->outlineColor = selectedPolygon->defaultOutlineColor;
-                selectedPolygon = nullptr;
+                for (auto& poly : selectedPolygons) {
+                    poly->outlineColor = poly->defaultOutlineColor;
+                }
+                selectedPolygons.clear();
             }
         }
         break;
+
 
     case Tool::Eraser:
         if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
@@ -278,6 +305,33 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
         }
         break;
 
+    case Tool::Select:
+        if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+            selecting = true;
+            selectStart = worldClick;
+            selectEnd = selectStart;
+        }
+        if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE && selecting) {
+            selecting = false;
+            selectEnd = worldClick;
+
+            // Build bounding box
+            float xMin = std::min(selectStart.x(), selectEnd.x());
+            float xMax = std::max(selectStart.x(), selectEnd.x());
+            float yMin = std::min(selectStart.y(), selectEnd.y());
+            float yMax = std::max(selectStart.y(), selectEnd.y());
+
+            selectedPolygons.clear();
+            for (auto& poly : polygons) {
+                Eigen::Vector2f center = poly->getCenter();
+                if (center.x() >= xMin && center.x() <= xMax &&
+                    center.y() >= yMin && center.y() <= yMax) {
+                    selectedPolygons.push_back(poly);
+                }
+            }
+        }
+        break;
+
 
     default:
         break;
@@ -312,6 +366,9 @@ void cursor_position_callback(GLFWwindow* window, double xpos, double ypos) {
     }
     if (grabActive) {
         grabCurrent = world;
+    }
+    if (currentTool == Tool::Select && selecting) {
+        selectEnd = screenToWorld(window, xpos, ypos);
     }
     pencilMousePos = screenToWorld(window, xpos, ypos);
 }
@@ -423,40 +480,68 @@ void display(GLFWwindow* window) {
         ghost->draw();
     }
 
+    if (currentTool == Tool::Select && selecting) {
+        glColor4f(0.3f, 0.5f, 1.0f, 0.2f);
+        glBegin(GL_QUADS);
+        glVertex2f(selectStart.x(), selectStart.y());
+        glVertex2f(selectEnd.x(), selectStart.y());
+        glVertex2f(selectEnd.x(), selectEnd.y());
+        glVertex2f(selectStart.x(), selectEnd.y());
+        glEnd();
+
+        glColor3f(0.3f, 0.5f, 1.0f);
+        glLineWidth(2);
+        glBegin(GL_LINE_LOOP);
+        glVertex2f(selectStart.x(), selectStart.y());
+        glVertex2f(selectEnd.x(), selectStart.y());
+        glVertex2f(selectEnd.x(), selectEnd.y());
+        glVertex2f(selectStart.x(), selectEnd.y());
+        glEnd();
+    }
+
     if (flickActive) {
         glLineWidth(3.0f);
         glColor3f(1.0f, 1.0f, 0.0f);
-
         glBegin(GL_LINES);
-        Eigen::Vector2f start = selectedPolygon->getCenter() + flickStartCenterOffset;
-        glVertex2f(start.x(), start.y());
-        glVertex2f(flickCurrent.x(), flickCurrent.y());
+        for (auto& poly : selectedPolygons) {
+            float currentRadius = poly->getBoundingRadius();
+            Eigen::Vector2f adjustedOffset = normalizedOffset * currentRadius;
+            Eigen::Vector2f start = poly->getCenter() + adjustedOffset;
+            glVertex2f(start.x(), start.y());
+            glVertex2f(flickCurrent.x(), flickCurrent.y());
+        }
         glEnd();
     }
+
 
     else if (grabActive) {
         glLineWidth(3.0f);
         glColor3f(0.0f, 1.0f, 0.0f);
-
         glBegin(GL_LINES);
-        Eigen::Vector2f start = selectedPolygon->getCenter() + grabStartCenterOffset;
-        glVertex2f(start.x(), start.y());
-        glVertex2f(grabCurrent.x(), grabCurrent.y());
+        for (auto& poly : selectedPolygons) {
+            float currentRadius = poly->getBoundingRadius();
+            Eigen::Vector2f adjustedOffset = normalizedOffset * currentRadius;
+            Eigen::Vector2f start = poly->getCenter() + adjustedOffset;
+            glVertex2f(start.x(), start.y());
+            glVertex2f(grabCurrent.x(), grabCurrent.y());
+        }
         glEnd();
 
-        // Apply grab force
-        if (grabActive && selectedPolygon) {
-            Eigen::Vector2f grabWorldStart = selectedPolygon->getCenter() + grabStartCenterOffset;
-            Eigen::Vector2f pullVec = grabCurrent - grabWorldStart;
+        // Apply force
+        for (auto& poly : selectedPolygons) {
+            float currentRadius = poly->getBoundingRadius();
+            Eigen::Vector2f adjustedOffset = normalizedOffset * currentRadius;
+            Eigen::Vector2f grabStart = poly->getCenter() + adjustedOffset;
+            Eigen::Vector2f pull = grabCurrent - grabStart;
 
-            if (pullVec.norm() > 1e-4f) {
-                float stiffness = 30.0f; // can tweak
-                Eigen::Vector2f force = pullVec * stiffness * timeStep;
-
-                selectedPolygon->applyImpulseAt(grabWorldStart, force);
+            if (pull.norm() > 1e-4f) {
+                float stiffness = 30.0f;
+                Eigen::Vector2f force = pull * stiffness * timeStep;
+                poly->applyImpulseAt(grabStart, force);
             }
         }
     }
+
 
 }
 

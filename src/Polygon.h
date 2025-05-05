@@ -25,6 +25,7 @@ public:
     void integratePosition(double timeStep);
 	void applyStackingFriction(const std::vector<std::shared_ptr<Polygon>>& others);
     bool isTouching(const std::shared_ptr<Polygon>& other) const;
+    float getBoundingRadius() const;
     void applyGroundFriction(double groundY, const Eigen::Vector3d& gravity, double timeStep, std::vector<std::shared_ptr<Polygon>> others);
     void step(
         double timeStep,
