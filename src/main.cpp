@@ -27,6 +27,8 @@ using namespace Eigen;
 
 // Simulation parameters
 const double timeStep = 1.0 / 60.0;
+const int springIters = 10;
+const int collisionIters = 10;
 const Vector3d gravity(0.0, -9.8, 0.0);
 const double groundY = -1.0;
 const double damping = 0.98;
@@ -223,8 +225,8 @@ void display(GLFWwindow* window) {
     for (auto& poly : polygons) {
         poly->step(
             timeStep,
-            5,                // spring iterations
-            12,               // collision iterations
+            springIters,                
+            collisionIters,               
             groundY,
             polygons,
             gravity,

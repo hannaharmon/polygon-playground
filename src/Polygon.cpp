@@ -90,81 +90,102 @@ bool Polygon::isAbove(const std::shared_ptr<Polygon>& other) const {
 }
 
 void Polygon::resolveCollisionsWith(const std::shared_ptr<Polygon>& other, double timeStep) {
-    for (const auto& edge : edges) {
-        Vector3d a = edge.p0->x;
-        Vector3d b = edge.p1->x;
-        Vector3d edgeVec = b - a;
-        double edgeLenSq = edgeVec.squaredNorm();
+    struct MTV {
+        Vector2d axis;
+        double depth;
+    };
 
-        for (auto& p : other->particles) {
-            if (p->fixed) continue;
+    MTV bestMTV;
+    bestMTV.depth = std::numeric_limits<double>::infinity();
 
-            Vector3d ap = p->x - a;
-            double t = edgeVec.dot(ap) / edgeLenSq;
-            t = std::clamp(t, 0.0, 1.0);
-            Vector3d closest = a + t * edgeVec;
+    auto getEdges = [](const std::vector<std::shared_ptr<Particle>>& particles) {
+        std::vector<std::pair<Vector2d, Vector2d>> edges;
+        int n = particles.size();
+        for (int i = 0; i < n; ++i) {
+            Vector2d a = particles[i]->x.head<2>();
+            Vector2d b = particles[(i + 1) % n]->x.head<2>();
+            edges.push_back({ a, b });
+        }
+        return edges;
+        };
 
-            Vector3d delta = p->x - closest;
-            double dist = delta.norm();
-            double minDist = std::min(collisionThickness, other->collisionThickness);
+    auto projectPolygon = [](const std::vector<std::shared_ptr<Particle>>& points, const Vector2d& axis, double& min, double& max) {
+        min = max = points[0]->x.head<2>().dot(axis);
+        for (const auto& p : points) {
+            double proj = p->x.head<2>().dot(axis);
+            if (proj < min) min = proj;
+            if (proj > max) max = proj;
+        }
+        };
 
-            if (dist < minDist && dist > 1e-6) {
-                Vector3d n = delta.normalized();
-                double penetration = minDist - dist;
+    auto edgesA = getEdges(particles);
+    auto edgesB = getEdges(other->particles);
 
-                // Inverse masses
-                double wp = p->fixed ? 0.0 : 1.0 / p->m;
-                double w0 = edge.p0->fixed ? 0.0 : 1.0 / edge.p0->m;
-                double w1 = edge.p1->fixed ? 0.0 : 1.0 / edge.p1->m;
-                double wsum = wp + w0 + w1;
-                if (wsum < 1e-8) continue;
+    auto testAxes = [&](const std::vector<std::pair<Vector2d, Vector2d>>& edges) {
+        for (const auto& edge : edges) {
+            Vector2d e = edge.second - edge.first;
+            Vector2d axis = Vector2d(-e.y(), e.x()).normalized();
 
-                // --- Position Correction (normal) ---
-                // Position correction only in normal direction (avoid shearing)
-                Vector3d correction = n * penetration;
-                if (!p->fixed)
-                    p->x += correction * (wp / wsum);
-                if (!edge.p0->fixed)
-                    edge.p0->x -= correction * (w0 / wsum);
-                if (!edge.p1->fixed)
-                    edge.p1->x -= correction * (w1 / wsum);
-                // Kill residual tangential drift due to numerical correction
-                double tangentialDrift = (p->x - p->p).dot(n.unitOrthogonal());
-                if (std::abs(tangentialDrift) < 1e-2) {
-                    Vector3d tangent = n.unitOrthogonal();
-                    p->x -= tangent * tangentialDrift;
-                }
+            double minA, maxA, minB, maxB;
+            projectPolygon(particles, axis, minA, maxA);
+            projectPolygon(other->particles, axis, minB, maxB);
 
+            double overlap = std::min(maxA, maxB) - std::max(minA, minB);
+            if (overlap < 0) return false; // Separating axis -> no collision
 
-                // --- Normal velocity damping ---
-                double vRelNormal = p->v.dot(n);
-                if (vRelNormal < 0.0) {
-                    p->v -= vRelNormal * n;
-                }
-
-                // --- Tangential Friction ---
-                Vector3d edgeVel = 0.5 * (edge.p0->v + edge.p1->v);
-                Vector3d relVel = p->v - edgeVel;
-                double vn = relVel.dot(n);
-                Vector3d vt = relVel - vn * n;
-
-                if (vt.norm() > 1e-6) {
-                    double mu = 0.9;
-                    double normalForce = getTotalMass() * 9.8;
-                    double maxImpulse = mu * normalForce * timeStep;
-
-                    // Apply just enough impulse to cancel relative tangential motion
-                    Vector3d frictionImpulse = -vt.normalized() * std::min(vt.norm(), maxImpulse);
-
-                    if (!p->fixed) p->v += frictionImpulse * (wp / wsum);
-                    if (!edge.p0->fixed) edge.p0->v -= frictionImpulse * (w0 / wsum);
-                    if (!edge.p1->fixed) edge.p1->v -= frictionImpulse * (w1 / wsum);
-                }
-
+            if (overlap < bestMTV.depth) {
+                bestMTV.depth = overlap;
+                bestMTV.axis = axis;
             }
+        }
+        return true;
+        };
+
+    if (!testAxes(edgesA)) return;
+    if (!testAxes(edgesB)) return;
+
+    // At this point, collision confirmed
+    // Compute total inverse mass
+    double wThis = 1.0 / getTotalMass();
+    double wOther = 1.0 / other->getTotalMass();
+    double wSum = wThis + wOther;
+
+    if (wSum < 1e-8) return;
+
+    // Direction from this to other
+    Vector2d dir = other->getCenter().cast<double>() - getCenter().cast<double>();
+    if (dir.dot(bestMTV.axis) < 0)
+        bestMTV.axis = -bestMTV.axis;
+
+    Vector2d correction = bestMTV.axis * bestMTV.depth;
+
+    for (auto& p : particles) {
+        if (!p->fixed)
+            p->x.head<2>() -= correction * (wThis / wSum);
+    }
+    for (auto& p : other->particles) {
+        if (!p->fixed)
+            p->x.head<2>() += correction * (wOther / wSum);
+    }
+
+    // Optional: zero normal relative velocity to avoid bounce
+    Vector3d n3d(bestMTV.axis.x(), bestMTV.axis.y(), 0);
+    for (auto& p : particles) {
+        if (!p->fixed) {
+            double vn = p->v.dot(n3d);
+            if (vn > 0) continue;
+            p->v -= vn * n3d;
+        }
+    }
+    for (auto& p : other->particles) {
+        if (!p->fixed) {
+            double vn = p->v.dot(n3d);
+            if (vn > 0) continue;
+            p->v -= vn * n3d;
         }
     }
 }
+
 
 double Polygon::getTotalMass() const {
     double mass = 0.0;
@@ -439,6 +460,6 @@ void Polygon::draw(bool drawParticles, bool drawSprings, bool drawEdges) const {
     float offset = .5 * .1;
 
 
-    drawPolygonOffset(particles, .04f, true, Eigen::Vector3f(0.0f, 0.5f, 1.0f));
-    drawPolygonOffset(particles, .04f, false, outlineColor);
+    drawPolygonOffset(particles, 0, true, Eigen::Vector3f(0.0f, 0.5f, 1.0f));
+    drawPolygonOffset(particles, 0, false, outlineColor);
 }
