@@ -60,7 +60,7 @@ Eigen::Vector2f panStartMouse;
 // Colors
 const Eigen::Vector4f flickOutlineColor(1.0f, 1.0f, 0.0f, 1.0f); // yellow
 const Eigen::Vector4f grabOutlineColor(0.0f, 1.0f, 0.0f, 1.0f);  // green
-const Eigen::Vector4f selectedOutlineColor(0.3f, 0.7f, 1.0f, 1.0f); // blue-ish
+const Eigen::Vector4f selectedOutlineColor(0.3f, 0.5f, 1.0f, 1.0f);
 const Eigen::Vector4f eraserHoverOutlineColor(1.0f, 0.2f, 0.2f, 1.0f);  // strong red
 
 // Line colors
@@ -692,18 +692,19 @@ void initButtons() {
     int w, h;
     glfwGetFramebufferSize(window, &w, &h);
 
-    struct ButtonInfo {
-        const char* iconFile;
+    struct ToolButtonData {
         Tool tool;
+        const char* iconFile;
+        Eigen::Vector4f selectedColor;
     };
 
-    std::vector<ButtonInfo> toolButtons = {
-        {"view.png", Tool::View},
-        {"flick.png", Tool::Flick},
-        {"grab.png", Tool::Grab},
-        {"select.png", Tool::Select},
-        {"pencil.png", Tool::Pencil},
-        {"eraser.png", Tool::Eraser}
+    std::vector<ToolButtonData> toolButtons = {
+    { Tool::View, "view.png", {0.7f, 0.3f, 0.9f, 1.0f} },
+    { Tool::Select, "select.png",  selectedOutlineColor },
+    { Tool::Flick,  "flick.png",   flickOutlineColor },
+    { Tool::Grab,   "grab.png",    grabOutlineColor },
+    { Tool::Pencil, "pencil.png", {1.0f, 0.55f, 0.1f, 1.0f} },
+    { Tool::Eraser, "eraser.png",  eraserHoverOutlineColor },
     };
 
     const int btnSize = 40;
@@ -716,7 +717,7 @@ void initButtons() {
 
         Button button(pos, size, tb.tool, [tool = tb.tool]() {
             switchTool(tool);
-            });
+            }, tb.selectedColor);
 
         std::string directory = "../assets/icons";
         unsigned int texture = LoadTexture(directory, std::string(tb.iconFile));
