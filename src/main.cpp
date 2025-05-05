@@ -46,6 +46,8 @@ SceneManager sceneManager;
 vector<shared_ptr<Polygon>> polygons;
 GLFWwindow* window;
 
+bool uiHovered = false;
+
 // Camera
 Eigen::Vector2f cameraPosition(0.0f, 0.0f);
 float cameraZoom = 1.0f;
@@ -161,6 +163,18 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     }
 
     glMatrixMode(GL_MODELVIEW);
+}
+
+void setScreenSpaceProjection(GLFWwindow* window) {
+    int width, height;
+    glfwGetFramebufferSize(window, &width, &height);
+
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0, width, height, 0, -1.0f, 1.0f);  // Top-left origin
+
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
 }
 
 void updateProjection(GLFWwindow* window) {
@@ -363,11 +377,15 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
     Eigen::Vector2f worldClick = screenToWorld(window, sx, sy);
 
     if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
-        // Check if user clicked a UI button
+        // Convert to float screen-space (no need to map to world space)
+        float mouseX = static_cast<float>(sx);
+        float mouseY = static_cast<float>(sy);
+
         for (auto& b : buttons) {
-            if (b.isHovered(worldClick.x(), worldClick.y())) {
+            if (b.isHovered(mouseX, mouseY)) {
                 b.click();
-                return; // Skip simulation click handling
+                uiHovered = true;
+                return; // Stop here if a button was clicked
             }
         }
     }
@@ -693,13 +711,8 @@ void initButtons() {
     int x = 10;
 
     for (const auto& tb : toolButtons) {
-        Eigen::Vector2f p1 = screenToWorld(window, x, h - 10 - btnSize);
-        Eigen::Vector2f p2 = screenToWorld(window, x + btnSize, h - 10);
-
-        float width = p2.x() - p1.x();
-        float height = p2.y() - p1.y();
-        glm::vec2 pos(std::min(p1.x(), p2.x()), std::min(p1.y(), p2.y()));
-        glm::vec2 size(std::abs(width), std::abs(height));
+        glm::vec2 pos(x, 10);  // 10px from top (screen-space)
+        glm::vec2 size(btnSize, btnSize);
 
         Button button(pos, size, tb.tool, [tool = tb.tool]() {
             switchTool(tool);
@@ -732,18 +745,9 @@ void display(GLFWwindow* window) {
     updateProjection(window);
     glLoadIdentity(); // Reset modelview
 
-
-
     glClear(GL_COLOR_BUFFER_BIT);
     for (auto& poly : polygons) {
         poly->draw();
-    }
-
-    // Reset modelview for UI
-    glLoadIdentity();
-
-    for (const auto& button : buttons) {
-        button.draw(button.getTool() == currentTool);
     }
 
     if (currentTool == Tool::Pencil) {
@@ -821,6 +825,13 @@ void display(GLFWwindow* window) {
         }
     }
 
+    // UI rendering
+    setScreenSpaceProjection(window);
+    glLoadIdentity();  // Reset modelview again
+
+    for (const auto& button : buttons) {
+        button.draw(button.getTool() == currentTool);
+    }
 
 }
 
@@ -851,7 +862,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 
 
 void handlePencilToolRepeat(GLFWwindow* window) {
-    if (currentTool != Tool::Pencil) return;
+    if (currentTool != Tool::Pencil || uiHovered) return;
 
     if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
         double now = glfwGetTime();
@@ -870,7 +881,7 @@ void handlePencilToolRepeat(GLFWwindow* window) {
 }
 
 void eraserUpdate(GLFWwindow* window) {
-    if (currentTool != Tool::Eraser) return;
+    if (currentTool != Tool::Eraser || uiHovered) return;
     double sx, sy;
     glfwGetCursorPos(window, &sx, &sy);
     Eigen::Vector2f worldClick = screenToWorld(window, sx, sy);
