@@ -49,6 +49,16 @@ GLFWwindow* window;
 // Colors
 const Eigen::Vector4f flickOutlineColor(1.0f, 1.0f, 0.0f, 1.0f); // yellow
 const Eigen::Vector4f grabOutlineColor(0.0f, 1.0f, 0.0f, 1.0f);  // green
+const Eigen::Vector4f selectedOutlineColor(0.3f, 0.7f, 1.0f, 1.0f); // blue-ish
+
+// Line colors
+const Eigen::Vector3f flickLineColor(1.0f, 1.0f, 0.0f);
+const Eigen::Vector3f grabLineColor(0.0f, 1.0f, 0.0f);
+
+// Selection box
+const Eigen::Vector4f selectionBoxFill(0.3f, 0.5f, 1.0f, 0.2f);
+const Eigen::Vector3f selectionBoxOutline(0.3f, 0.5f, 1.0f);
+
 
 Tool currentTool = Tool::Flick;
 
@@ -329,12 +339,16 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
             float yMin = std::min(selectStart.y(), selectEnd.y());
             float yMax = std::max(selectStart.y(), selectEnd.y());
 
+            for (auto& poly : selectedPolygons) {
+                poly->outlineColor = poly->defaultOutlineColor;
+            }
             selectedPolygons.clear();
             for (auto& poly : polygons) {
                 Eigen::Vector2f center = poly->getCenter();
                 if (center.x() >= xMin && center.x() <= xMax &&
                     center.y() >= yMin && center.y() <= yMax) {
                     selectedPolygons.push_back(poly);
+                    poly->outlineColor = selectedOutlineColor;
                 }
             }
         }
@@ -489,7 +503,7 @@ void display(GLFWwindow* window) {
     }
 
     if (currentTool == Tool::Select && selecting) {
-        glColor4f(0.3f, 0.5f, 1.0f, 0.2f);
+        glColor4f(selectionBoxFill.x(), selectionBoxFill.y(), selectionBoxFill.z(), selectionBoxFill.w());
         glBegin(GL_QUADS);
         glVertex2f(selectStart.x(), selectStart.y());
         glVertex2f(selectEnd.x(), selectStart.y());
@@ -497,7 +511,7 @@ void display(GLFWwindow* window) {
         glVertex2f(selectStart.x(), selectEnd.y());
         glEnd();
 
-        glColor3f(0.3f, 0.5f, 1.0f);
+        glColor3f(selectionBoxOutline.x(), selectionBoxOutline.y(), selectionBoxOutline.z());
         glLineWidth(2);
         glBegin(GL_LINE_LOOP);
         glVertex2f(selectStart.x(), selectStart.y());
@@ -509,7 +523,7 @@ void display(GLFWwindow* window) {
 
     if (flickActive) {
         glLineWidth(3.0f);
-        glColor3f(1.0f, 1.0f, 0.0f);
+        glColor3f(flickLineColor.x(), flickLineColor.y(), flickLineColor.z());
         glBegin(GL_LINES);
         for (auto& poly : selectedPolygons) {
             float currentRadius = poly->getBoundingRadius();
@@ -524,7 +538,7 @@ void display(GLFWwindow* window) {
 
     else if (grabActive) {
         glLineWidth(3.0f);
-        glColor3f(0.0f, 1.0f, 0.0f);
+        glColor3f(grabLineColor.x(), grabLineColor.y(), grabLineColor.z());
         glBegin(GL_LINES);
         for (auto& poly : selectedPolygons) {
             float currentRadius = poly->getBoundingRadius();
