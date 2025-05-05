@@ -166,6 +166,28 @@ Eigen::Vector2f screenToWorld(GLFWwindow* window, double sx, double sy) {
     return Eigen::Vector2f(worldX, worldY);
 }
 
+bool isClickOnSelectedPolygon(const Eigen::Vector2f& click) {
+    for (const auto& poly : selectedPolygons) {
+        if (poly->containsPoint(click, 0.05f)) return true;
+    }
+    return false;
+}
+
+void clearSelection() {
+    for (auto& poly : selectedPolygons) {
+        poly->outlineColor = poly->defaultOutlineColor;
+    }
+    selectedPolygons.clear();
+}
+
+std::shared_ptr<Polygon> getClickedSelectedPolygon(const Eigen::Vector2f& click) {
+    for (const auto& poly : selectedPolygons) {
+        if (poly->containsPoint(click, 0.05f)) return poly;
+    }
+    return nullptr;
+}
+
+
 void switchTool(Tool newTool) {
     if (newTool == currentTool) return;
 
@@ -254,23 +276,33 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
     case Tool::Flick:
         if (button == GLFW_MOUSE_BUTTON_LEFT) {
             if (action == GLFW_PRESS) {
+                std::shared_ptr<Polygon> clickedPolygon = getClickedSelectedPolygon(worldClick);
+
+                if (!selectedPolygons.empty() && !clickedPolygon) {
+                    clearSelection();
+                    return;
+                }
+
                 if (selectedPolygons.empty()) {
                     for (auto& poly : polygons) {
                         if (poly->containsPoint(worldClick, 0.05f)) {
                             selectedPolygons = { poly };
+                            clickedPolygon = poly;
                             break;
                         }
                     }
                 }
-                if (!selectedPolygons.empty()) {
-                    flickActive = true;
-                    Eigen::Vector2f rawOffset = worldClick - selectedPolygons[0]->getCenter();
-                    float baseRadius = selectedPolygons[0]->getBoundingRadius();
-                    Eigen::Vector2f normalizedOffset = rawOffset / baseRadius;
+
+                if (clickedPolygon) {
+                    Eigen::Vector2f rawOffset = worldClick - clickedPolygon->getCenter();
+                    float baseRadius = clickedPolygon->getBoundingRadius();
+                    normalizedOffset = rawOffset / baseRadius;
                     flickCurrent = worldClick;
-                }
-                for (auto& p : selectedPolygons) {
-                    p->outlineColor = flickOutlineColor;
+                    flickActive = true;
+
+                    for (auto& p : selectedPolygons) {
+                        p->outlineColor = flickOutlineColor;
+                    }
                 }
             }
             else if (action == GLFW_RELEASE && flickActive) {
@@ -295,25 +327,36 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
     case Tool::Grab:
         if (button == GLFW_MOUSE_BUTTON_LEFT) {
             if (action == GLFW_PRESS) {
+                std::shared_ptr<Polygon> clickedPolygon = getClickedSelectedPolygon(worldClick);
+
+                if (!selectedPolygons.empty() && !clickedPolygon) {
+                    clearSelection();
+                    return;
+                }
+
                 if (selectedPolygons.empty()) {
                     for (auto& poly : polygons) {
                         if (poly->containsPoint(worldClick, 0.05f)) {
                             selectedPolygons = { poly };
+                            clickedPolygon = poly;
                             break;
                         }
                     }
                 }
-                if (!selectedPolygons.empty()) {
-                    grabActive = true;
-                    Eigen::Vector2f rawOffset = worldClick - selectedPolygons[0]->getCenter();
-                    float baseRadius = selectedPolygons[0]->getBoundingRadius();
-                    Eigen::Vector2f normalizedOffset = rawOffset / baseRadius;
+
+                if (clickedPolygon) {
+                    Eigen::Vector2f rawOffset = worldClick - clickedPolygon->getCenter();
+                    float baseRadius = clickedPolygon->getBoundingRadius();
+                    normalizedOffset = rawOffset / baseRadius;
                     grabCurrent = worldClick;
-                }
-                for (auto& p : selectedPolygons) {
-                    p->outlineColor = grabOutlineColor;
+                    grabActive = true;
+
+                    for (auto& p : selectedPolygons) {
+                        p->outlineColor = grabOutlineColor;
+                    }
                 }
             }
+
             else if (action == GLFW_RELEASE && grabActive) {
                 grabActive = false;
                 for (auto& poly : selectedPolygons) {
@@ -327,21 +370,34 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 
     case Tool::Eraser:
         if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
-            if (!selectedPolygons.empty()) {
-                // Delete all selected polygons
-                for (const auto& poly : selectedPolygons) {
-                    polygons.erase(std::remove(polygons.begin(), polygons.end(), poly), polygons.end());
+            std::shared_ptr<Polygon> clickedPolygon = nullptr;
+
+            for (auto& poly : polygons) {
+                if (poly->containsPoint(worldClick, 0.05f)) {
+                    clickedPolygon = poly;
+                    break;
                 }
-                selectedPolygons.clear();
+            }
+
+            if (clickedPolygon) {
+                bool isSelected = std::find(selectedPolygons.begin(), selectedPolygons.end(), clickedPolygon) != selectedPolygons.end();
+
+                if (isSelected) {
+                    // If selected, delete all selected polygons
+                    for (const auto& poly : selectedPolygons) {
+                        polygons.erase(std::remove(polygons.begin(), polygons.end(), poly), polygons.end());
+                    }
+                    selectedPolygons.clear();
+                }
+                else {
+                    // If not selected, delete just the clicked one and clear selection
+                    polygons.erase(std::remove(polygons.begin(), polygons.end(), clickedPolygon), polygons.end());
+                    clearSelection();
+                }
             }
             else {
-                // Delete hovered polygon
-                for (auto it = polygons.begin(); it != polygons.end(); ++it) {
-                    if ((*it)->containsPoint(worldClick, 0.05f)) {
-                        polygons.erase(it);
-                        break;
-                    }
-                }
+                // Clicked in empty space: deselect
+                clearSelection();
             }
         }
         break;
@@ -433,36 +489,37 @@ void cursor_position_callback(GLFWwindow* window, double xpos, double ypos) {
     }
     pencilMousePos = screenToWorld(window, xpos, ypos);
     if (currentTool == Tool::Eraser) {
-        if (!selectedPolygons.empty()) {
-            bool anyHovered = false;
+        std::shared_ptr<Polygon> hovered = nullptr;
 
-            // Check if any selected polygon is hovered
-            for (auto& poly : selectedPolygons) {
-                if (poly->containsPoint(world, 0.05f)) {
-                    anyHovered = true;
-                    break;
-                }
-            }
-
-            // Apply red outline to all if any hovered
-            for (auto& poly : selectedPolygons) {
-                poly->outlineColor = anyHovered ? eraserHoverOutlineColor : selectedOutlineColor;
-            }
-        }
-        else {
-            // No selection: check for single hovered polygon
-            for (auto& poly : polygons) {
-                if (poly->containsPoint(world, 0.05f)) {
-                    poly->outlineColor = eraserHoverOutlineColor;
-                }
-                else {
-                    poly->outlineColor = poly->defaultOutlineColor;
-                }
+        // Find the first hovered polygon
+        for (auto& poly : polygons) {
+            if (poly->containsPoint(world, 0.05f)) {
+                hovered = poly;
+                break;
             }
         }
 
+        bool hoveredIsSelected = hovered && std::find(selectedPolygons.begin(), selectedPolygons.end(), hovered) != selectedPolygons.end();
+
+        for (auto& poly : polygons) {
+            bool isSelected = std::find(selectedPolygons.begin(), selectedPolygons.end(), poly) != selectedPolygons.end();
+
+            if (hoveredIsSelected && isSelected) {
+                poly->outlineColor = eraserHoverOutlineColor;  // all selected turn red
+            }
+            else if (hovered == poly && !isSelected) {
+                poly->outlineColor = eraserHoverOutlineColor;  // single hovered deselected turns red
+            }
+            else if (isSelected) {
+                poly->outlineColor = selectedOutlineColor;
+            }
+            else {
+                poly->outlineColor = poly->defaultOutlineColor;
+            }
+        }
 
     }
+
 }
 
 void LoadScene(int key) {
