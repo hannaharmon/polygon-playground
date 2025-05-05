@@ -778,8 +778,10 @@ void display(GLFWwindow* window) {
         collisionGrid.insert(poly);
     }
 
-    // Only check collisions with neighbors
-    for (auto& poly : polygons) {
+    #pragma omp parallel for schedule(dynamic)  // parallelize the loop
+    for (int i = 0; i < polygons.size(); ++i) {
+        auto& poly = polygons[i];
+        // Only check collisions with neighbors
         auto neighbors = collisionGrid.getNearby(poly);
         poly->step(timeStep, springIters, collisionIters, groundY, neighbors, gravity, damping);
     }
