@@ -563,15 +563,44 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 
     case Tool::Select:
         if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
-            selecting = true;
-            selectStart = worldClick;
-            selectEnd = selectStart;
+            std::shared_ptr<Polygon> clickedPolygon = nullptr;
+
+            for (auto& poly : polygons) {
+                if (poly->containsPoint(worldClick, 0.05f)) {
+                    clickedPolygon = poly;
+                    break;
+                }
+            }
+
+            if (clickedPolygon) {
+                bool alreadySelected = std::find(selectedPolygons.begin(), selectedPolygons.end(), clickedPolygon) != selectedPolygons.end();
+                bool shiftHeld = (mods & GLFW_MOD_SHIFT);
+
+                if (!shiftHeld) {
+                    for (auto& poly : selectedPolygons) {
+                        poly->outlineColor = poly->defaultOutlineColor;
+                    }
+                    selectedPolygons.clear();
+                }
+
+                if (!alreadySelected || !shiftHeld) {
+                    selectedPolygons.push_back(clickedPolygon);
+                    clickedPolygon->outlineColor = selectedOutlineColor;
+                }
+            }
+            else {
+                // Begin box selection if clicked empty space
+                selecting = true;
+                selectStart = worldClick;
+                selectEnd = selectStart;
+            }
         }
+
         if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE && selecting) {
             selecting = false;
             selectEnd = worldClick;
 
-            // Build bounding box
+            // Bounding box selection
             float xMin = std::min(selectStart.x(), selectEnd.x());
             float xMax = std::max(selectStart.x(), selectEnd.x());
             float yMin = std::min(selectStart.y(), selectEnd.y());
@@ -581,6 +610,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
                 poly->outlineColor = poly->defaultOutlineColor;
             }
             selectedPolygons.clear();
+
             for (auto& poly : polygons) {
                 bool intersects = false;
                 for (auto& particle : poly->particles) {
@@ -596,9 +626,9 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
                     poly->outlineColor = selectedOutlineColor;
                 }
             }
-
         }
         break;
+
 
 
     default:
