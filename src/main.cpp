@@ -35,8 +35,9 @@ using namespace Eigen;
 
 // Simulation parameters
 const double timeStep = 1.0 / 60.0;
-const int springIters = 10;
-const int collisionIters = 10;
+int polyCount = 0;
+int springIters = 10;
+int collisionIters = 10;
 const Vector3d gravity(0.0, -9.8, 0.0);
 const double groundY = -1.0;
 const double damping = 0.98;
@@ -777,6 +778,10 @@ void display(GLFWwindow* window) {
     for (auto& poly : polygons) {
         collisionGrid.insert(poly);
     }
+
+    polyCount = polygons.size();
+    springIters = polyCount > 100 ? 3 : 10;
+    collisionIters = polyCount > 100 ? 2 : 10;
 
     #ifdef _OPENMP
     #include <omp.h>
