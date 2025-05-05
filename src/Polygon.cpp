@@ -168,22 +168,29 @@ void Polygon::resolveCollisionsWith(const std::shared_ptr<Polygon>& other, doubl
             p->x.head<2>() += correction * (wOther / wSum);
     }
 
-    // Optional: zero normal relative velocity to avoid bounce
+    // Apply impulse-based response to transfer momentum
     Vector3d n3d(bestMTV.axis.x(), bestMTV.axis.y(), 0);
-    for (auto& p : particles) {
-        if (!p->fixed) {
-            double vn = p->v.dot(n3d);
-            if (vn > 0) continue;
-            p->v -= vn * n3d;
+    double restitution = 0.0;  // inelastic for realism
+
+    for (auto& pa : particles) {
+        if (pa->fixed) continue;
+        for (auto& pb : other->particles) {
+            if (pb->fixed) continue;
+
+            Vector3d rv = pb->v - pa->v;
+            double velAlongNormal = rv.dot(n3d);
+            if (velAlongNormal > 0) continue; // separating
+
+            double invMassA = 1.0 / pa->m;
+            double invMassB = 1.0 / pb->m;
+            double j = -(1.0 + restitution) * velAlongNormal / (invMassA + invMassB);
+            Vector3d impulse = j * n3d;
+
+            pa->v -= impulse * invMassA;
+            pb->v += impulse * invMassB;
         }
     }
-    for (auto& p : other->particles) {
-        if (!p->fixed) {
-            double vn = p->v.dot(n3d);
-            if (vn > 0) continue;
-            p->v -= vn * n3d;
-        }
-    }
+
 }
 
 
