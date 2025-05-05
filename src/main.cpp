@@ -46,9 +46,6 @@ SceneManager sceneManager;
 vector<shared_ptr<Polygon>> polygons;
 GLFWwindow* window;
 
-double lastEraserTime = 0.0;
-double lastPencilTime = 0.0;
-const double toolRepeatDelay = 0.5;  // seconds between actions
 
 // Colors
 const Eigen::Vector4f flickOutlineColor(1.0f, 1.0f, 0.0f, 1.0f); // yellow
@@ -79,7 +76,13 @@ bool grabActive = false;
 Eigen::Vector2f grabStartCenterOffset;
 Eigen::Vector2f grabCurrent;
 
+// Eraser globals
+std::unordered_map<std::shared_ptr<Polygon>, int> eraserCountdowns;
+const int eraserDelayFrames = 3;
+
 // Pencil globals
+double lastPencilTime = 0.0;
+const double toolRepeatDelay = 0.2;  // seconds between actions
 Eigen::Vector2f pencilMousePos;
 float pencilSizeX = 0.3f;
 float pencilSizeY = 0.3f;
@@ -541,40 +544,6 @@ void cursor_position_callback(GLFWwindow* window, double xpos, double ypos) {
         selectEnd = screenToWorld(window, xpos, ypos);
     }
     pencilMousePos = screenToWorld(window, xpos, ypos);
-    if (currentTool == Tool::Eraser) {
-        if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
-            double now = glfwGetTime();
-            if (now - lastEraserTime >= toolRepeatDelay) {
-                std::shared_ptr<Polygon> clickedPolygon = nullptr;
-
-                for (auto& poly : polygons) {
-                    if (poly->containsPoint(world, 0.05f)) {
-                        clickedPolygon = poly;
-                        break;
-                    }
-                }
-
-                if (clickedPolygon) {
-                    bool isSelected = std::find(selectedPolygons.begin(), selectedPolygons.end(), clickedPolygon) != selectedPolygons.end();
-
-                    if (isSelected) {
-                        for (const auto& poly : selectedPolygons) {
-                            polygons.erase(std::remove(polygons.begin(), polygons.end(), poly), polygons.end());
-                        }
-                        selectedPolygons.clear();
-                    }
-                    else {
-                        polygons.erase(std::remove(polygons.begin(), polygons.end(), clickedPolygon), polygons.end());
-                        clearSelection();
-                    }
-
-                    lastEraserTime = now;
-                }
-            }
-        }
-
-        updateEraserHoverOutlines(world);
-    }
 }
 
 void LoadScene(int key) {
@@ -780,6 +749,60 @@ void handlePencilToolRepeat(GLFWwindow* window) {
     }
 }
 
+void eraserUpdate(GLFWwindow* window) {
+    if (currentTool != Tool::Eraser) return;
+    double sx, sy;
+    glfwGetCursorPos(window, &sx, &sy);
+    Eigen::Vector2f worldClick = screenToWorld(window, sx, sy);
+    updateEraserHoverOutlines(worldClick);
+
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) != GLFW_PRESS) return;
+
+    std::shared_ptr<Polygon> clickedPolygon = nullptr;
+
+    for (auto& poly : polygons) {
+        if (poly->containsPoint(worldClick, 0.05f)) {
+            clickedPolygon = poly;
+            break;
+        }
+    }
+
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+        if (clickedPolygon) {
+            // Track countdown
+            if (eraserCountdowns.find(clickedPolygon) == eraserCountdowns.end()) {
+                eraserCountdowns[clickedPolygon] = 1;
+            }
+            else {
+                eraserCountdowns[clickedPolygon]++;
+            }
+
+            if (eraserCountdowns[clickedPolygon] >= eraserDelayFrames) {
+                bool isSelected = std::find(selectedPolygons.begin(), selectedPolygons.end(), clickedPolygon) != selectedPolygons.end();
+
+                if (isSelected) {
+                    for (const auto& poly : selectedPolygons) {
+                        polygons.erase(std::remove(polygons.begin(), polygons.end(), poly), polygons.end());
+                    }
+                    selectedPolygons.clear();
+                }
+                else {
+                    polygons.erase(std::remove(polygons.begin(), polygons.end(), clickedPolygon), polygons.end());
+                    clearSelection();
+                }
+
+                eraserCountdowns.clear(); // Reset all after a deletion
+            }
+        }
+        else {
+            eraserCountdowns.clear(); // Reset if not hovering any polygon
+        }
+    }
+    else {
+        eraserCountdowns.clear(); // Reset if mouse is not pressed
+    }
+
+}
 
 int main() {
     if (!glfwInit()) {
@@ -826,6 +849,7 @@ int main() {
 
     while (!glfwWindowShouldClose(window)) {
         handlePencilToolRepeat(window);
+        eraserUpdate(window);
         display(window);
         glfwSwapBuffers(window);
         glfwPollEvents();
