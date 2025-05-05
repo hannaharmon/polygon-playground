@@ -46,6 +46,14 @@ SceneManager sceneManager;
 vector<shared_ptr<Polygon>> polygons;
 GLFWwindow* window;
 
+// Camera
+Eigen::Vector2f cameraPosition(0.0f, 0.0f);
+float cameraZoom = 1.0f;
+
+bool panning = false;
+Eigen::Vector2f panStartWorld;
+Eigen::Vector2f panStartMouse;
+
 
 // Colors
 const Eigen::Vector4f flickOutlineColor(1.0f, 1.0f, 0.0f, 1.0f); // yellow
@@ -63,6 +71,7 @@ const Eigen::Vector3f selectionBoxOutline(0.3f, 0.5f, 1.0f);
 
 Tool currentTool = Tool::Flick;
 Tool previousTool = Tool::None;
+bool isQuickSwapping = false;
 
 Eigen::Vector2f normalizedOffset;
 
@@ -134,44 +143,89 @@ unsigned int LoadTexture(const std::string& directory, const std::string& filena
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
-
     float aspect = width / (float)height;
+    float viewHeight = 2.0f / cameraZoom;
 
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
 
     if (aspect >= 1.0f) {
-        glOrtho(-2.0f * aspect, 2.0f * aspect, -2.0f, 2.0f, -1.0f, 1.0f);
+        glOrtho(-viewHeight * aspect + cameraPosition.x(), viewHeight * aspect + cameraPosition.x(),
+            -viewHeight + cameraPosition.y(), viewHeight + cameraPosition.y(),
+            -1.0f, 1.0f);
     }
     else {
-        glOrtho(-2.0f, 2.0f, -2.0f / aspect, 2.0f / aspect, -1.0f, 1.0f);
+        glOrtho(-viewHeight + cameraPosition.x(), viewHeight + cameraPosition.x(),
+            -viewHeight / aspect + cameraPosition.y(), viewHeight / aspect + cameraPosition.y(),
+            -1.0f, 1.0f);
     }
 
     glMatrixMode(GL_MODELVIEW);
 }
 
-Eigen::Vector2f screenToWorld(GLFWwindow* window, double sx, double sy) {
+void updateProjection(GLFWwindow* window) {
     int width, height;
     glfwGetFramebufferSize(window, &width, &height);
+    float aspect = width / (float)height;
+    float viewHeight = 2.0f / cameraZoom;
+
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+
+    if (aspect >= 1.0f) {
+        glOrtho(-viewHeight * aspect + cameraPosition.x(), viewHeight * aspect + cameraPosition.x(),
+            -viewHeight + cameraPosition.y(), viewHeight + cameraPosition.y(),
+            -1.0f, 1.0f);
+    }
+    else {
+        glOrtho(-viewHeight + cameraPosition.x(), viewHeight + cameraPosition.x(),
+            -viewHeight / aspect + cameraPosition.y(), viewHeight / aspect + cameraPosition.y(),
+            -1.0f, 1.0f);
+    }
+
+    glMatrixMode(GL_MODELVIEW);
+}
+
+
+
+Eigen::Vector2f screenToWorld(GLFWwindow* window, double sx, double sy) {
+    int width, height;
+    glfwGetFramebufferSize(window, &width, &height);  // use framebuffer size, not window size
+
+    // Flip Y because OpenGL origin is bottom-left
+    float ndcX = (float(sx) / width) * 2.0f - 1.0f;
+    float ndcY = 1.0f - (float(sy) / height) * 2.0f;
 
     float aspect = width / (float)height;
-
-    float ndcX = (float)(2.0 * sx / width - 1.0);
-    float ndcY = (float)(1.0 - 2.0 * sy / height); // y is flipped in OpenGL
+    float viewHeight = 2.0f / cameraZoom;
 
     float worldX, worldY;
 
     if (aspect >= 1.0f) {
-        worldX = ndcX * 2.0f * aspect;
-        worldY = ndcY * 2.0f;
+        float halfWidth = viewHeight * aspect;
+        float left = -halfWidth + cameraPosition.x();
+        float right = halfWidth + cameraPosition.x();
+        worldX = ((ndcX + 1.0f) / 2.0f) * (right - left) + left;
+
+        float bottom = -viewHeight + cameraPosition.y();
+        float top = viewHeight + cameraPosition.y();
+        worldY = ((ndcY + 1.0f) / 2.0f) * (top - bottom) + bottom;
     }
     else {
-        worldX = ndcX * 2.0f;
-        worldY = ndcY * 2.0f / aspect;
+        float halfHeight = viewHeight / aspect;
+        float left = -viewHeight + cameraPosition.x();
+        float right = viewHeight + cameraPosition.x();
+        worldX = ((ndcX + 1.0f) / 2.0f) * (right - left) + left;
+
+        float bottom = -halfHeight + cameraPosition.y();
+        float top = halfHeight + cameraPosition.y();
+        worldY = ((ndcY + 1.0f) / 2.0f) * (top - bottom) + bottom;
     }
 
     return Eigen::Vector2f(worldX, worldY);
 }
+
+
 
 bool isClickOnSelectedPolygon(const Eigen::Vector2f& click) {
     for (const auto& poly : selectedPolygons) {
@@ -320,6 +374,22 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 
     // If not button press, try to use current tool
     switch (currentTool) {
+
+    case Tool::View:
+        if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+            panning = true;
+
+            double sx, sy;
+            glfwGetCursorPos(window, &sx, &sy);
+            panStartMouse = Eigen::Vector2f(sx, sy);
+            panStartWorld = cameraPosition;
+        }
+
+        if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
+            panning = false;
+        }
+        break;
+
     case Tool::Flick:
         if (button == GLFW_MOUSE_BUTTON_LEFT) {
             if (action == GLFW_PRESS) {
@@ -529,11 +599,42 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
             pencilSizeY = std::clamp(pencilSizeY, 0.05f, 1.5f);
         }
     }
+
+    if (currentTool == Tool::View) {
+        double sx, sy;
+        glfwGetCursorPos(window, &sx, &sy);
+        Eigen::Vector2f worldBefore = screenToWorld(window, sx, sy);
+
+        float zoomFactor = (yoffset > 0) ? 1.1f : 1.0f / 1.1f;
+        cameraZoom *= zoomFactor;
+
+        Eigen::Vector2f worldAfter = screenToWorld(window, sx, sy);
+        cameraPosition += worldBefore - worldAfter;
+
+        int w, h;
+        glfwGetFramebufferSize(window, &w, &h);
+        updateProjection(window);
+
+    }
+
 }
 
 
 void cursor_position_callback(GLFWwindow* window, double xpos, double ypos) {
     Eigen::Vector2f world = screenToWorld(window, xpos, ypos);
+
+    if (currentTool == Tool::View && panning) {
+        double sx, sy;
+        glfwGetCursorPos(window, &sx, &sy);
+        Eigen::Vector2f newWorld = screenToWorld(window, sx, sy);
+        Eigen::Vector2f startWorld = screenToWorld(window, panStartMouse.x(), panStartMouse.y());
+        cameraPosition = panStartWorld + (startWorld - newWorld);
+
+        int w, h;
+        glfwGetFramebufferSize(window, &w, &h);
+        updateProjection(window);
+    }
+
     if (flickActive) {
         flickCurrent = world;
     }
@@ -627,6 +728,11 @@ void display(GLFWwindow* window) {
             damping
         );
     }
+
+    updateProjection(window);
+    glLoadIdentity(); // Reset modelview
+
+
 
     glClear(GL_COLOR_BUFFER_BIT);
     for (auto& poly : polygons) {
@@ -725,10 +831,24 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
         }
         if (key >= GLFW_KEY_0 && key <= GLFW_KEY_9) {
             int sceneIndex = key - GLFW_KEY_0;
-			LoadScene(sceneIndex);
+            LoadScene(sceneIndex);
+        }
+
+        if (key == GLFW_KEY_SPACE && !isQuickSwapping) {
+            isQuickSwapping = true;
+            previousTool = currentTool;
+            switchTool(Tool::View);
+        }
+    }
+
+    if (action == GLFW_RELEASE) {
+        if (key == GLFW_KEY_SPACE && isQuickSwapping) {
+            isQuickSwapping = false;
+            switchTool(previousTool);
         }
     }
 }
+
 
 void handlePencilToolRepeat(GLFWwindow* window) {
     if (currentTool != Tool::Pencil) return;
@@ -850,10 +970,15 @@ int main() {
     while (!glfwWindowShouldClose(window)) {
         handlePencilToolRepeat(window);
         eraserUpdate(window);
+
+        int fbWidth, fbHeight;
+        glfwGetFramebufferSize(window, &fbWidth, &fbHeight);
+
         display(window);
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
+
 
     glfwDestroyWindow(window);
     glfwTerminate();
