@@ -672,12 +672,13 @@ void LoadScene(int key) {
 }
 
 void initScenes() {
+
     sceneManager.RegisterScene(1, []() {
-        return PolygonFactory::CreateStackedRectangles(Vector3d(0, -.8, 0), 4, 0.2, 0.4);
+        return PolygonFactory::CreateWall(Vector3d(-1.2, -.8, 0), 3, 3, 0.4, 0.4);
         });
 
     sceneManager.RegisterScene(2, []() {
-        return PolygonFactory::CreateWall(Vector3d(-1.2, -.8, 0), 3, 3, 0.4, 0.4);
+        return PolygonFactory::CreateStackedRectangles(Vector3d(0, -.8, 0), 4, 0.2, 0.4);
         });
 
     sceneManager.RegisterScene(3, []() {
@@ -699,12 +700,12 @@ void initButtons() {
     };
 
     std::vector<ToolButtonData> toolButtons = {
-    { Tool::View, "view.png", {0.7f, 0.3f, 0.9f, 1.0f} },
-    { Tool::Select, "select.png",  selectedOutlineColor },
+    { Tool::Eraser, "eraser.png",  eraserHoverOutlineColor },
+    { Tool::Pencil, "pencil.png", {1.0f, 0.55f, 0.1f, 1.0f} },
     { Tool::Flick,  "flick.png",   flickOutlineColor },
     { Tool::Grab,   "grab.png",    grabOutlineColor },
-    { Tool::Pencil, "pencil.png", {1.0f, 0.55f, 0.1f, 1.0f} },
-    { Tool::Eraser, "eraser.png",  eraserHoverOutlineColor },
+    { Tool::Select, "select.png",  selectedOutlineColor },
+    { Tool::View, "view.png", {0.7f, 0.3f, 0.9f, 1.0f} },
     };
 
     const int btnSize = 40;
@@ -841,9 +842,26 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
         if (key == GLFW_KEY_ESCAPE) {
             glfwSetWindowShouldClose(window, GL_TRUE);
         }
-        if (key >= GLFW_KEY_0 && key <= GLFW_KEY_9) {
-            int sceneIndex = key - GLFW_KEY_0;
-            LoadScene(sceneIndex);
+
+        switch (key) {
+        case GLFW_KEY_1:
+            switchTool(Tool::Eraser);
+            break;
+        case GLFW_KEY_2:
+            switchTool(Tool::Pencil);
+            break;
+        case GLFW_KEY_3:
+            switchTool(Tool::Flick);
+            break;
+        case GLFW_KEY_4:
+            switchTool(Tool::Grab);
+            break;
+        case GLFW_KEY_5:
+            switchTool(Tool::Select);
+            break;
+        case GLFW_KEY_6:
+            switchTool(Tool::View);
+            break;
         }
 
         if (key == GLFW_KEY_SPACE && !isQuickSwapping) {
@@ -936,6 +954,23 @@ void eraserUpdate(GLFWwindow* window) {
 
 }
 
+void updateUIHover(GLFWwindow* window) {
+    double sx, sy;
+    glfwGetCursorPos(window, &sx, &sy);
+    float mouseX = static_cast<float>(sx);
+    float mouseY = static_cast<float>(sy);
+
+    for (const auto& b : buttons) {
+        if (b.isHovered(mouseX, mouseY)) {
+            uiHovered = true;
+            return;
+        }
+    }
+
+    uiHovered = false;
+}
+
+
 int main() {
     if (!glfwInit()) {
         cerr << "Failed to initialize GLFW" << endl;
@@ -980,6 +1015,7 @@ int main() {
     glfwSetScrollCallback(window, scroll_callback);
 
     while (!glfwWindowShouldClose(window)) {
+        updateUIHover(window);
         handlePencilToolRepeat(window);
         eraserUpdate(window);
 
