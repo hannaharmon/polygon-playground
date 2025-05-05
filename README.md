@@ -1,1 +1,1 @@
-# 2d-jenga
+# polygon playground
