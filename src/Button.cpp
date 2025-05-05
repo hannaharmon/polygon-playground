@@ -39,10 +39,11 @@ void Button::draw(bool active) const {
         float y1 = pos.y + size.y - yMargin;
 
         glBegin(GL_QUADS);
-        glTexCoord2f(0, 0); glVertex2f(x0, y0);
-        glTexCoord2f(1, 0); glVertex2f(x1, y0);
-        glTexCoord2f(1, 1); glVertex2f(x1, y1);
-        glTexCoord2f(0, 1); glVertex2f(x0, y1);
+        glTexCoord2f(0, 1); glVertex2f(x0, y0);
+        glTexCoord2f(1, 1); glVertex2f(x1, y0);
+        glTexCoord2f(1, 0); glVertex2f(x1, y1);
+        glTexCoord2f(0, 0); glVertex2f(x0, y1);
+
         glEnd();
 
         glDisable(GL_TEXTURE_2D);

@@ -20,6 +20,9 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+#define STB_IMAGE_RESIZE2_IMPLEMENTATION
+#include "stb_image_resize2.h"
+
 #include "SceneManager.h"
 #include "PolygonFactory.h"
 #include "Polygon.h"
@@ -36,8 +39,8 @@ using namespace Eigen;
 // Simulation parameters
 const double timeStep = 1.0 / 60.0;
 int polyCount = 0;
-int springIters = 10;
-int collisionIters = 10;
+int springIters = 6;
+int collisionIters = 6;
 const Vector3d gravity(0.0, -9.8, 0.0);
 const double groundY = -1.0;
 const double damping = 0.98;
@@ -122,6 +125,14 @@ GLFWcursor* handCursor;
 GLFWcursor* crosshairCursor;
 GLFWcursor* ibeamCursor;
 
+GLFWcursor* flickCursor = nullptr;
+GLFWcursor* grabCursor = nullptr;
+GLFWcursor* pencilCursor = nullptr;
+GLFWcursor* eraserCursor = nullptr;
+GLFWcursor* selectCursor = nullptr;
+GLFWcursor* viewCursor = nullptr;
+
+
 unsigned int LoadTexture(const std::string& directory, const std::string& filename) {
     std::string fullPath = directory + "/" + filename;
 
@@ -152,6 +163,38 @@ unsigned int LoadTexture(const std::string& directory, const std::string& filena
     stbi_image_free(data);
     return tex;
 }
+
+GLFWcursor* LoadCursorFromFile(const std::string& path, int hotspotX, int hotspotY, int targetSize = 32) {
+    int width, height, channels;
+    stbi_set_flip_vertically_on_load(false);
+    unsigned char* originalPixels = stbi_load(path.c_str(), &width, &height, &channels, STBI_rgb_alpha);
+    if (!originalPixels) {
+        std::cerr << "Failed to load cursor image: " << path << std::endl;
+        return nullptr;
+    }
+
+    unsigned char* resized = new unsigned char[targetSize * targetSize * 4];
+
+    stbir_resize_uint8_linear(
+        originalPixels, width, height, 0,        // src, w, h, stride
+        resized, targetSize, targetSize, 0,      // dst, w, h, stride
+        STBIR_RGBA                               // layout: must match your pixel format
+    );
+
+
+    stbi_image_free(originalPixels);
+
+    GLFWimage image;
+    image.width = targetSize;
+    image.height = targetSize;
+    image.pixels = resized;
+
+    GLFWcursor* cursor = glfwCreateCursor(&image, hotspotX, hotspotY);
+    delete[] resized;
+
+    return cursor;
+}
+
 
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
@@ -322,23 +365,15 @@ void switchTool(Tool newTool) {
 
     currentTool = newTool;
 
-    if (window) {  // make sure window is valid
+    if (window) {
         switch (newTool) {
-        case Tool::View:
-            glfwSetCursor(window, handCursor);
-            break;
-        case Tool::Pencil:
-        case Tool::Select:
-            glfwSetCursor(window, crosshairCursor);
-            break;
-        case Tool::Eraser:
-        case Tool::Flick:
-        case Tool::Grab:
-            glfwSetCursor(window, arrowCursor);
-            break;
-        default:
-            glfwSetCursor(window, nullptr);  // fallback to system default
-            break;
+        case Tool::Flick:   glfwSetCursor(window, flickCursor); break;
+        case Tool::Grab:    glfwSetCursor(window, grabCursor); break;
+        case Tool::Pencil:  glfwSetCursor(window, pencilCursor); break;
+        case Tool::Eraser:  glfwSetCursor(window, eraserCursor); break;
+        case Tool::Select:  glfwSetCursor(window, selectCursor); break;
+        case Tool::View:    glfwSetCursor(window, viewCursor); break;
+        default:            glfwSetCursor(window, arrowCursor); break;
         }
     }
 
@@ -749,7 +784,7 @@ void initButtons() {
     { Tool::View, "view.png", {0.7f, 0.3f, 0.9f, 1.0f} },
     };
 
-    const int btnSize = 40;
+    const int btnSize = 80;
     const int spacing = 10;
     int x = 10;
 
@@ -769,6 +804,15 @@ void initButtons() {
 
         x += btnSize + spacing;
     }
+
+    // Load PNG-based cursors
+    flickCursor = LoadCursorFromFile("../assets/icons/flick.png", 16, 16);
+    grabCursor = LoadCursorFromFile("../assets/icons/grab.png", 16, 16);
+    pencilCursor = LoadCursorFromFile("../assets/icons/pencil.png", 16, 16);
+    eraserCursor = LoadCursorFromFile("../assets/icons/eraser.png", 16, 16);
+    selectCursor = LoadCursorFromFile("../assets/icons/select.png", 16, 16);
+    viewCursor = LoadCursorFromFile("../assets/icons/view.png", 16, 16);
+
 }
 
 bool isPolygonVisible(const std::shared_ptr<Polygon>& poly, GLFWwindow* window) {
@@ -815,10 +859,6 @@ void display(GLFWwindow* window) {
     polyCount = polygons.size();
     springIters = polyCount > 100 ? 3 : 10;
     collisionIters = polyCount > 100 ? 2 : 10;
-
-    #ifdef _OPENMP
-    #include <omp.h>
-    #endif
 
     #ifdef _OPENMP
     #pragma omp parallel for schedule(dynamic)
@@ -1233,6 +1273,7 @@ int main() {
     glfwSetMouseButtonCallback(window, mouse_button_callback);
     glfwSetCursorPosCallback(window, cursor_position_callback);
     glfwSetScrollCallback(window, scroll_callback);
+
 
     while (!glfwWindowShouldClose(window)) {
         updateUIHover(window);
