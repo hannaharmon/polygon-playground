@@ -46,6 +46,10 @@ SceneManager sceneManager;
 vector<shared_ptr<Polygon>> polygons;
 GLFWwindow* window;
 
+// Colors
+const Eigen::Vector4f flickOutlineColor(1.0f, 1.0f, 0.0f, 1.0f); // yellow
+const Eigen::Vector4f grabOutlineColor(0.0f, 1.0f, 0.0f, 1.0f);  // green
+
 Tool currentTool = Tool::Flick;
 
 Eigen::Vector2f normalizedOffset;
@@ -205,7 +209,6 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
                     for (auto& poly : polygons) {
                         if (poly->containsPoint(worldClick, 0.05f)) {
                             selectedPolygons = { poly };
-                            poly->outlineColor = Eigen::Vector4f(1.0f, 1.0f, 0.0f, 1.0f);
                             break;
                         }
                     }
@@ -216,6 +219,9 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
                     float baseRadius = selectedPolygons[0]->getBoundingRadius();
                     Eigen::Vector2f normalizedOffset = rawOffset / baseRadius;
                     flickCurrent = worldClick;
+                }
+                for (auto& p : selectedPolygons) {
+                    p->outlineColor = flickOutlineColor;
                 }
             }
             else if (action == GLFW_RELEASE && flickActive) {
@@ -244,7 +250,6 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
                     for (auto& poly : polygons) {
                         if (poly->containsPoint(worldClick, 0.05f)) {
                             selectedPolygons = { poly };
-                            poly->outlineColor = Eigen::Vector4f(0.0f, 1.0f, 0.0f, 1.0f);
                             break;
                         }
                     }
@@ -255,6 +260,9 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
                     float baseRadius = selectedPolygons[0]->getBoundingRadius();
                     Eigen::Vector2f normalizedOffset = rawOffset / baseRadius;
                     grabCurrent = worldClick;
+                }
+                for (auto& p : selectedPolygons) {
+                    p->outlineColor = grabOutlineColor;
                 }
             }
             else if (action == GLFW_RELEASE && grabActive) {
