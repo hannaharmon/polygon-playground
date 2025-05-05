@@ -778,13 +778,19 @@ void display(GLFWwindow* window) {
         collisionGrid.insert(poly);
     }
 
-    #pragma omp parallel for schedule(dynamic)  // parallelize the loop
+    #ifdef _OPENMP
+    #include <omp.h>
+    #endif
+
+    #ifdef _OPENMP
+    #pragma omp parallel for schedule(dynamic)
+    #endif
     for (int i = 0; i < polygons.size(); ++i) {
         auto& poly = polygons[i];
-        // Only check collisions with neighbors
         auto neighbors = collisionGrid.getNearby(poly);
         poly->step(timeStep, springIters, collisionIters, groundY, neighbors, gravity, damping);
     }
+
 
     updateProjection(window);
     glLoadIdentity(); // Reset modelview
