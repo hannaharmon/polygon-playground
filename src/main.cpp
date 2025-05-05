@@ -187,6 +187,37 @@ std::shared_ptr<Polygon> getClickedSelectedPolygon(const Eigen::Vector2f& click)
     return nullptr;
 }
 
+void updateEraserHoverOutlines(const Eigen::Vector2f& world) {
+    std::shared_ptr<Polygon> hovered = nullptr;
+
+    // Find the hovered polygon
+    for (auto& poly : polygons) {
+        if (poly->containsPoint(world, 0.05f)) {
+            hovered = poly;
+            break;
+        }
+    }
+
+    bool hoveredIsSelected = hovered && std::find(selectedPolygons.begin(), selectedPolygons.end(), hovered) != selectedPolygons.end();
+
+    for (auto& poly : polygons) {
+        bool isSelected = std::find(selectedPolygons.begin(), selectedPolygons.end(), poly) != selectedPolygons.end();
+
+        if (hoveredIsSelected && isSelected) {
+            poly->outlineColor = eraserHoverOutlineColor;  // all selected turn red
+        }
+        else if (hovered == poly && !isSelected) {
+            poly->outlineColor = eraserHoverOutlineColor;  // single hovered deselected turns red
+        }
+        else if (isSelected) {
+            poly->outlineColor = selectedOutlineColor;
+        }
+        else {
+            poly->outlineColor = poly->defaultOutlineColor;
+        }
+    }
+}
+
 
 void switchTool(Tool newTool) {
     if (newTool == currentTool) return;
@@ -224,6 +255,15 @@ void switchTool(Tool newTool) {
             break;
         }
     }
+
+    if (newTool == Tool::Eraser) {
+        // Re-run hover logic in case cursor is already over a polygon
+        double sx, sy;
+        glfwGetCursorPos(window, &sx, &sy);
+        Eigen::Vector2f worldPos = screenToWorld(window, sx, sy);
+        updateEraserHoverOutlines(worldPos);
+    }
+
 }
 
 void character_callback(GLFWwindow* window, unsigned int codepoint) {
@@ -489,35 +529,7 @@ void cursor_position_callback(GLFWwindow* window, double xpos, double ypos) {
     }
     pencilMousePos = screenToWorld(window, xpos, ypos);
     if (currentTool == Tool::Eraser) {
-        std::shared_ptr<Polygon> hovered = nullptr;
-
-        // Find the first hovered polygon
-        for (auto& poly : polygons) {
-            if (poly->containsPoint(world, 0.05f)) {
-                hovered = poly;
-                break;
-            }
-        }
-
-        bool hoveredIsSelected = hovered && std::find(selectedPolygons.begin(), selectedPolygons.end(), hovered) != selectedPolygons.end();
-
-        for (auto& poly : polygons) {
-            bool isSelected = std::find(selectedPolygons.begin(), selectedPolygons.end(), poly) != selectedPolygons.end();
-
-            if (hoveredIsSelected && isSelected) {
-                poly->outlineColor = eraserHoverOutlineColor;  // all selected turn red
-            }
-            else if (hovered == poly && !isSelected) {
-                poly->outlineColor = eraserHoverOutlineColor;  // single hovered deselected turns red
-            }
-            else if (isSelected) {
-                poly->outlineColor = selectedOutlineColor;
-            }
-            else {
-                poly->outlineColor = poly->defaultOutlineColor;
-            }
-        }
-
+        updateEraserHoverOutlines(world);
     }
 
 }
