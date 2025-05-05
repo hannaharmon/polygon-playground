@@ -811,7 +811,7 @@ int main() {
     }
 
     glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
-    window = glfwCreateWindow(1280, 720, "Polygon Viewer", nullptr, nullptr);
+    window = glfwCreateWindow(1280, 720, "Polygon Playground", nullptr, nullptr);
     if (!window) {
         std::cerr << "Failed to create window\n";
         glfwTerminate();
