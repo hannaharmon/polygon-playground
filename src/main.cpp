@@ -39,8 +39,8 @@ using namespace Eigen;
 // Simulation parameters
 const double timeStep = 1.0 / 60.0;
 int polyCount = 0;
-int springIters = 6;
-int collisionIters = 6;
+int springIters = 12;
+int collisionIters = 12;
 const Vector3d gravity(0.0, -9.8, 0.0);
 const double groundY = -1.0;
 const double damping = 0.98;
@@ -786,7 +786,10 @@ void initButtons() {
 
     const int btnSize = 80;
     const int spacing = 10;
-    int x = 10;
+
+    int totalButtonWidth = toolButtons.size() * btnSize + (toolButtons.size() - 1) * spacing;
+    int x = (w - totalButtonWidth) / 2;
+
 
     for (const auto& tb : toolButtons) {
         glm::vec2 pos(x, 10);  // 10px from top (screen-space)
@@ -849,6 +852,70 @@ bool isPolygonVisible(const std::shared_ptr<Polygon>& poly, GLFWwindow* window) 
 }
 
 
+void drawGrid(float spacing = 1.0f) {
+    glEnable(GL_LINE_SMOOTH);
+    glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+    glLineWidth(1.0f);
+
+    int width, height;
+    glfwGetFramebufferSize(window, &width, &height);
+    float aspect = (height > 0) ? static_cast<float>(width) / height : 1280.0f / 720.0f;
+
+    float viewHeight = 2.0f / cameraZoom;
+    float viewWidth = viewHeight * aspect;
+
+    float left = cameraPosition.x() - viewWidth;
+    float right = cameraPosition.x() + viewWidth;
+    float bottom = cameraPosition.y() - viewHeight;
+    float top = cameraPosition.y() + viewHeight;
+
+    float startX = std::floor(left / spacing) * spacing;
+    float endX = std::ceil(right / spacing) * spacing;
+    float startY = std::floor(bottom / spacing) * spacing;
+    float endY = std::ceil(top / spacing) * spacing;
+
+    auto snap = [](float v, float unit = 1e-3f) {
+        return std::round(v / unit) * unit;
+        };
+
+    glBegin(GL_LINES);
+
+    // Vertical lines (split above and below ground)
+    for (float x = startX; x <= endX; x += spacing) {
+        x = snap(x);
+        if (groundY > startY) {
+            glColor3f(0.3f, 0.3f, 0.3f);  // grey above ground
+            glVertex2f(x, groundY);
+            glVertex2f(x, top);
+
+            glColor3f(0.3f, 0.2f, 0.2f);  // reddish below
+            glVertex2f(x, groundY);
+            glVertex2f(x, startY);
+        }
+        else {
+            glColor3f(0.3f, 0.3f, 0.3f);  // all visible above ground
+            glVertex2f(x, startY);
+            glVertex2f(x, top);
+        }
+    }
+
+    // Horizontal lines
+    for (float y = startY; y <= endY; y += spacing) {
+        y = snap(y);
+        if (y < groundY)
+            glColor3f(0.3f, 0.2f, 0.2f);  // reddish
+        else
+            glColor3f(0.3f, 0.3f, 0.3f);
+
+        glVertex2f(left, y);
+        glVertex2f(right, y);
+    }
+
+    glEnd();
+}
+
+
+
 void display(GLFWwindow* window) {
 
     collisionGrid.clear();
@@ -857,8 +924,8 @@ void display(GLFWwindow* window) {
     }
 
     polyCount = polygons.size();
-    springIters = polyCount > 100 ? 3 : 10;
-    collisionIters = polyCount > 100 ? 2 : 10;
+    springIters = polyCount > 100 ? 3 : 6;
+    collisionIters = polyCount > 100 ? 2 : 12;
 
     #ifdef _OPENMP
     #pragma omp parallel for schedule(dynamic)
@@ -874,6 +941,11 @@ void display(GLFWwindow* window) {
     glLoadIdentity(); // Reset modelview
 
     glClear(GL_COLOR_BUFFER_BIT);
+
+    drawGrid(1.0f);  // Or 1.0f for wider spacing
+
+
+
     for (auto& poly : polygons) {
         if (isPolygonVisible(poly, window)) {
             poly->draw();
@@ -1005,6 +1077,19 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
             }
             selectedPolygons.clear();
         }
+
+        if ((mods & GLFW_MOD_CONTROL) && key == GLFW_KEY_A) {
+            for (auto& poly : selectedPolygons) {
+                poly->outlineColor = poly->defaultOutlineColor;
+            }
+            selectedPolygons.clear();
+
+            for (const auto& poly : polygons) {
+                selectedPolygons.push_back(poly);
+                poly->outlineColor = selectedOutlineColor;
+            }
+        }
+
 
         // COPY: Ctrl+C
         if ((mods & GLFW_MOD_CONTROL) && key == GLFW_KEY_C) {
