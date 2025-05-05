@@ -30,6 +30,7 @@ const double timeStep = 1.0 / 60.0;
 const Vector3d gravity(0.0, -9.8, 0.0);
 const double groundY = -1.0;
 const double damping = 0.98;
+const double flickForceScale = 10;
 
 // Globals
 SceneManager sceneManager;
@@ -151,7 +152,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
                 Eigen::Vector2f flickStartWorld = center + flickStartCenterOffset;
                 Eigen::Vector2f flickDir = flickStartWorld - flickCurrent;
                 if (flickDir.norm() > 1e-4) {
-                    selectedPolygon->applyImpulseAt(flickStartWorld, flickDir * 20.0f);
+                    selectedPolygon->applyImpulseAt(flickStartWorld, flickDir * flickForceScale);
                 }
                 selectedPolygon->outlineColor = selectedPolygon->defaultOutlineColor;
                 selectedPolygon = nullptr;
