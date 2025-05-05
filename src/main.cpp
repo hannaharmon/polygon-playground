@@ -60,6 +60,11 @@ Tool currentTool = Tool::Flick;
 
 std::vector<std::shared_ptr<Polygon>> selectedPolygons;
 
+Eigen::Vector2f pencilMousePos;
+float pencilSizeX = 0.3f;
+float pencilSizeY = 0.3f;
+int pencilSides = 4;
+
 GLFWcursor* arrowCursor;
 GLFWcursor* handCursor;
 GLFWcursor* crosshairCursor;
@@ -256,11 +261,43 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
         }
         break;
 
+    case Tool::Pencil:
+        if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+            polygons.push_back(
+                PolygonFactory::CreateRegularPolygon(
+                    Vector3d(pencilMousePos.x(), pencilMousePos.y(), 0.0),
+                    pencilSides,
+                    pencilSizeX, pencilSizeY
+                )
+            );
+        }
+        if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
+            pencilSides = (pencilSides % 8) + 3; // cycle 3–10 sides
+        }
+        break;
+
 
     default:
         break;
     }
 }
+
+void scroll_callback(GLFWwindow * window, double xoffset, double yoffset) {
+    if (currentTool == Tool::Pencil) {
+        float scale = (yoffset > 0) ? 1.1f : 0.9f;
+
+        if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS ||
+            glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS) {
+            pencilSizeX *= scale;
+            pencilSizeX = std::clamp(pencilSizeX, 0.05f, 1.5f);
+        }
+        else {
+            pencilSizeY *= scale;
+            pencilSizeY = std::clamp(pencilSizeY, 0.05f, 1.5f);
+        }
+    }
+}
+
 
 void cursor_position_callback(GLFWwindow* window, double xpos, double ypos) {
     Eigen::Vector2f world = screenToWorld(window, xpos, ypos);
@@ -270,6 +307,7 @@ void cursor_position_callback(GLFWwindow* window, double xpos, double ypos) {
     if (grabActive) {
         grabCurrent = world;
     }
+    pencilMousePos = screenToWorld(window, xpos, ypos);
 }
 
 void LoadScene(int key) {
@@ -456,6 +494,7 @@ int main() {
     glfwSetCharCallback(window, character_callback);
     glfwSetMouseButtonCallback(window, mouse_button_callback);
     glfwSetCursorPosCallback(window, cursor_position_callback);
+    glfwSetScrollCallback(window, scroll_callback);
 
     while (!glfwWindowShouldClose(window)) {
         display(window);
