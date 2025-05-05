@@ -50,17 +50,18 @@ GLFWwindow* window;
 const Eigen::Vector4f flickOutlineColor(1.0f, 1.0f, 0.0f, 1.0f); // yellow
 const Eigen::Vector4f grabOutlineColor(0.0f, 1.0f, 0.0f, 1.0f);  // green
 const Eigen::Vector4f selectedOutlineColor(0.3f, 0.7f, 1.0f, 1.0f); // blue-ish
+const Eigen::Vector4f eraserHoverOutlineColor(1.0f, 0.2f, 0.2f, 1.0f);  // strong red
 
 // Line colors
 const Eigen::Vector3f flickLineColor(1.0f, 1.0f, 0.0f);
 const Eigen::Vector3f grabLineColor(0.0f, 1.0f, 0.0f);
 
-// Selection box
+// Selection box colors
 const Eigen::Vector4f selectionBoxFill(0.3f, 0.5f, 1.0f, 0.2f);
 const Eigen::Vector3f selectionBoxOutline(0.3f, 0.5f, 1.0f);
 
-
 Tool currentTool = Tool::Flick;
+Tool previousTool = Tool::None;
 
 Eigen::Vector2f normalizedOffset;
 
@@ -165,35 +166,73 @@ Eigen::Vector2f screenToWorld(GLFWwindow* window, double sx, double sy) {
     return Eigen::Vector2f(worldX, worldY);
 }
 
-void character_callback(GLFWwindow* window, unsigned int codepoint) {
-    switch (codepoint) {
-    case 's': 
-        currentTool = Tool::Select; 
-        glfwSetCursor(window, arrowCursor);
-        break;
-    case 'f': 
-        currentTool = Tool::Flick; 
-        glfwSetCursor(window, crosshairCursor);
-        break;
-    case 'g': 
-        currentTool = Tool::Grab; 
-        glfwSetCursor(window, handCursor);
-        break;
-    case 'p': 
-        currentTool = Tool::Pencil;
-        glfwSetCursor(window, ibeamCursor);
-        break;
-    case 'e': 
-        currentTool = Tool::Eraser;
-        glfwSetCursor(window, arrowCursor);
-        break;
-    case 'v': 
-        currentTool = Tool::View; 
-        glfwSetCursor(window, arrowCursor);
-        break;
-    default: break;
+void switchTool(Tool newTool) {
+    if (newTool == currentTool) return;
+
+    // Cleanup from Eraser hover effect
+    if (currentTool == Tool::Eraser) {
+        for (auto& poly : polygons) {
+            if (std::find(selectedPolygons.begin(), selectedPolygons.end(), poly) != selectedPolygons.end()) {
+                poly->outlineColor = selectedOutlineColor;
+            }
+            else {
+                poly->outlineColor = poly->defaultOutlineColor;
+            }
+        }
+    }
+
+    currentTool = newTool;
+
+    if (window) {  // make sure window is valid
+        switch (newTool) {
+        case Tool::View:
+            glfwSetCursor(window, handCursor);
+            break;
+        case Tool::Pencil:
+        case Tool::Select:
+            glfwSetCursor(window, crosshairCursor);
+            break;
+        case Tool::Eraser:
+        case Tool::Flick:
+        case Tool::Grab:
+            glfwSetCursor(window, arrowCursor);
+            break;
+        default:
+            glfwSetCursor(window, nullptr);  // fallback to system default
+            break;
+        }
     }
 }
+
+void character_callback(GLFWwindow* window, unsigned int codepoint) {
+    switch (codepoint) {
+    case 'v':
+    case 'V':
+        switchTool(Tool::View);
+        break;
+    case 'f':
+    case 'F':
+        switchTool(Tool::Flick);
+        break;
+    case 'g':
+    case 'G':
+        switchTool(Tool::Grab);
+        break;
+    case 's':
+    case 'S':
+        switchTool(Tool::Select);
+        break;
+    case 'p':
+    case 'P':
+        switchTool(Tool::Pencil);
+        break;
+    case 'e':
+    case 'E':
+        switchTool(Tool::Eraser);
+        break;
+    }
+}
+
 
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
     double sx, sy;
@@ -393,6 +432,37 @@ void cursor_position_callback(GLFWwindow* window, double xpos, double ypos) {
         selectEnd = screenToWorld(window, xpos, ypos);
     }
     pencilMousePos = screenToWorld(window, xpos, ypos);
+    if (currentTool == Tool::Eraser) {
+        if (!selectedPolygons.empty()) {
+            bool anyHovered = false;
+
+            // Check if any selected polygon is hovered
+            for (auto& poly : selectedPolygons) {
+                if (poly->containsPoint(world, 0.05f)) {
+                    anyHovered = true;
+                    break;
+                }
+            }
+
+            // Apply red outline to all if any hovered
+            for (auto& poly : selectedPolygons) {
+                poly->outlineColor = anyHovered ? eraserHoverOutlineColor : selectedOutlineColor;
+            }
+        }
+        else {
+            // No selection: check for single hovered polygon
+            for (auto& poly : polygons) {
+                if (poly->containsPoint(world, 0.05f)) {
+                    poly->outlineColor = eraserHoverOutlineColor;
+                }
+                else {
+                    poly->outlineColor = poly->defaultOutlineColor;
+                }
+            }
+        }
+
+
+    }
 }
 
 void LoadScene(int key) {
@@ -450,7 +520,7 @@ void initButtons() {
         glm::vec2 size(std::abs(width), std::abs(height));
 
         Button button(pos, size, tb.tool, [tool = tb.tool]() {
-            currentTool = tool;
+            switchTool(tool);
             });
 
         std::string directory = "../assets/icons";
