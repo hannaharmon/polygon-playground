@@ -79,6 +79,50 @@ void Polygon::applyForces(double timeStep, const Vector3d& gravity, double dampi
     }
 }
 
+bool Polygon::isTouching(const std::shared_ptr<Polygon>& other) const {
+    auto getEdges = [](const std::vector<std::shared_ptr<Particle>>& particles) {
+        std::vector<std::pair<Vector2d, Vector2d>> edges;
+        int n = particles.size();
+        for (int i = 0; i < n; ++i) {
+            Vector2d a = particles[i]->x.head<2>();
+            Vector2d b = particles[(i + 1) % n]->x.head<2>();
+            edges.push_back({ a, b });
+        }
+        return edges;
+        };
+
+    auto project = [](const std::vector<std::shared_ptr<Particle>>& pts, const Vector2d& axis, double& min, double& max) {
+        min = max = pts[0]->x.head<2>().dot(axis);
+        for (auto& p : pts) {
+            double proj = p->x.head<2>().dot(axis);
+            min = std::min(min, proj);
+            max = std::max(max, proj);
+        }
+        };
+
+    auto edgesA = getEdges(particles);
+    auto edgesB = getEdges(other->particles);
+
+    auto checkAxes = [&](const std::vector<std::pair<Vector2d, Vector2d>>& edges) {
+        for (auto& edge : edges) {
+            Vector2d e = edge.second - edge.first;
+            Vector2d axis(-e.y(), e.x());
+            axis.normalize();
+
+            double minA, maxA, minB, maxB;
+            project(particles, axis, minA, maxA);
+            project(other->particles, axis, minB, maxB);
+
+            if (maxA < minB || maxB < minA)
+                return false;  // Separating axis found
+        }
+        return true;
+        };
+
+    return checkAxes(edgesA) && checkAxes(edgesB);
+}
+
+
 void Polygon::integratePosition(double timeStep) {
     for (auto& p : particles) {
         if (!p->fixed) {
@@ -196,66 +240,72 @@ void Polygon::resolveCollisionsWith(const std::shared_ptr<Polygon>& other, doubl
             double invMassA = 1.0 / pa->m;
             double invMassB = 1.0 / pb->m;
             double j = -(1.0 + restitution) * velAlongNormal / (invMassA + invMassB);
+            totalNormalImpulse += std::abs(j);
             Vector3d impulse = j * n3d;
 
-            totalNormalImpulse += std::abs(j);
 
             pa->v -= impulse * invMassA;
             pb->v += impulse * invMassB;
 
-            // --- Tangential Friction Impulse ---
+            // === Friction impulse (constraint-based) ===
             Vector3d tangent = rv - velAlongNormal * n3d;
             if (tangent.norm() > 1e-6) {
                 tangent.normalize();
+
                 double relTanVel = rv.dot(tangent);
                 double jt = -relTanVel / (invMassA + invMassB);
 
-                double mu = 0.8;
+                // Static + dynamic friction coefficient
+                double mu_static = 0.8;
+                double mu_dynamic = 0.8;
 
-                // Estimate normal force: only use mass * gravity if stacked
-                double contactForce = std::abs(j) / timeStep;
-                double massEstimate = (pa->m + pb->m);
-                double normalForce = std::max(contactForce, massEstimate * 9.8);
-                double maxFriction = mu * normalForce * timeStep;
+                double maxFriction = (std::abs(j) > 1e-4 && std::abs(relTanVel) < 0.05)
+                    ? mu_static * std::abs(j)
+                    : mu_dynamic * std::abs(j);
 
                 double jtClamped = std::clamp(jt, -maxFriction, maxFriction);
                 Vector3d frictionImpulse = jtClamped * tangent;
 
-                // Get total mass
-                double massA = pa->m;
-                double massB = pb->m;
-                double totalMass = massA + massB;
-
-                double scaleA = massB / totalMass;  // heavier body resists more
-                double scaleB = massA / totalMass;
-
-                bool aMoving = pa->v.head<2>().norm() > 1e-4;
-                bool bMoving = pb->v.head<2>().norm() > 1e-4;
-
-                if (!aMoving && bMoving) {
-                    // pb is moving, pa is not — drag pa
-                    pa->v -= frictionImpulse / massA;
-                }
-                else if (aMoving && !bMoving) {
-                    // pa is moving, pb is not — drag pb
-                    pb->v += frictionImpulse / massB;
-                }
-                else {
-                    // Both moving or both still — split
-                    pa->v -= frictionImpulse * 0.5 / massA;
-                    pb->v += frictionImpulse * 0.5 / massB;
-                }
-
-
-
+                pa->v -= frictionImpulse * invMassA;
+                pb->v += frictionImpulse * invMassB;
             }
 
-
         }
+
     }
 
-
 }
+
+void Polygon::applyStackingFriction(const std::vector<std::shared_ptr<Polygon>>& others) {
+    for (auto& other : others) {
+        if (other.get() == this) continue;
+
+        // Check vertical relationship
+        double thisY = 0.0, otherY = 0.0;
+        for (auto& p : particles) thisY += p->x.y();
+        for (auto& p : other->particles) otherY += p->x.y();
+        thisY /= particles.size();
+        otherY /= other->particles.size();
+
+        // Only apply if THIS is below OTHER
+        if (thisY < otherY - 0.01 && isTouching(other)) {
+            Vector3d avgVThis = Vector3d::Zero();
+            Vector3d avgVOther = Vector3d::Zero();
+            for (auto& p : particles) avgVThis += p->v;
+            for (auto& p : other->particles) avgVOther += p->v;
+            avgVThis /= particles.size();
+            avgVOther /= other->particles.size();
+
+            double relVx = avgVOther.x() - avgVThis.x();
+            double blend = 0.2; // Tune as needed
+
+            for (auto& p : other->particles)
+                if (!p->fixed)
+                    p->v.x() -= relVx * blend;
+        }
+    }
+}
+
 
 
 double Polygon::getTotalMass() const {
@@ -288,6 +338,8 @@ void Polygon::updateVelocities(double timeStep) {
             p->v.x() = 0;
         }
     }
+
+
     const double linearThreshold = 0.1;
 
     for (auto& p : particles) {
@@ -295,6 +347,9 @@ void Polygon::updateVelocities(double timeStep) {
             p->v = Vector3d::Zero();
         }
     }
+
+
+
 
 }
 
@@ -395,6 +450,10 @@ void Polygon::step(
 
     // 6. Friction
     applyGroundFriction(groundY, gravity, timeStep, others);
+
+    // 7. Stacking friction
+    applyStackingFriction(others);
+
 
 
     Vector3d avgV = Vector3d::Zero();

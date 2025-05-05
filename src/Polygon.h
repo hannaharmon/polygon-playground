@@ -23,6 +23,8 @@ public:
     double getTotalMass() const;
     double computeEffectiveNormalForce(const std::vector<std::shared_ptr<Polygon>>& others);
     void integratePosition(double timeStep);
+	void applyStackingFriction(const std::vector<std::shared_ptr<Polygon>>& others);
+    bool isTouching(const std::shared_ptr<Polygon>& other) const;
     void applyGroundFriction(double groundY, const Eigen::Vector3d& gravity, double timeStep, std::vector<std::shared_ptr<Polygon>> others);
     void step(
         double timeStep,
@@ -33,7 +35,7 @@ public:
         const Eigen::Vector3d& gravity,
         double damping
     );
-    void draw(bool drawParticles = true, bool drawSprings = true, bool drawEdges = true) const;
+    void draw(bool drawParticles = false, bool drawSprings = false, bool drawEdges = false) const;
     bool containsPoint(const Eigen::Vector2f& point, float extraOffset = 0.0f) const;
     bool isAbove(const std::shared_ptr<Polygon>& other) const;
     void applyImpulseAt(const Eigen::Vector2f& worldPoint, const Eigen::Vector2f& impulse2D);
