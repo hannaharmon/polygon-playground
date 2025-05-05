@@ -4,6 +4,7 @@
 
 #include <GL/glew.h>
 #include <cmath>
+#include <iostream>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -74,6 +75,14 @@ void Polygon::applyForces(double timeStep, const Vector3d& gravity, double dampi
             p->p = p->x;
             p->v += gravity * timeStep;
             p->v *= damping;
+        }
+    }
+}
+
+void Polygon::integratePosition(double timeStep) {
+    for (auto& p : particles) {
+        if (!p->fixed) {
+            p->p = p->x;
             p->x += p->v * timeStep;
         }
     }
@@ -94,6 +103,9 @@ void Polygon::resolveCollisionsWith(const std::shared_ptr<Polygon>& other, doubl
         Vector2d axis;
         double depth;
     };
+
+    double totalNormalImpulse = 0.0;
+
 
     MTV bestMTV;
     bestMTV.depth = std::numeric_limits<double>::infinity();
@@ -186,10 +198,62 @@ void Polygon::resolveCollisionsWith(const std::shared_ptr<Polygon>& other, doubl
             double j = -(1.0 + restitution) * velAlongNormal / (invMassA + invMassB);
             Vector3d impulse = j * n3d;
 
+            totalNormalImpulse += std::abs(j);
+
             pa->v -= impulse * invMassA;
             pb->v += impulse * invMassB;
+
+            // --- Tangential Friction Impulse ---
+            Vector3d tangent = rv - velAlongNormal * n3d;
+            if (tangent.norm() > 1e-6) {
+                tangent.normalize();
+                double relTanVel = rv.dot(tangent);
+                double jt = -relTanVel / (invMassA + invMassB);
+
+                double mu = 0.8;
+
+                // Estimate normal force: only use mass * gravity if stacked
+                double contactForce = std::abs(j) / timeStep;
+                double massEstimate = (pa->m + pb->m);
+                double normalForce = std::max(contactForce, massEstimate * 9.8);
+                double maxFriction = mu * normalForce * timeStep;
+
+                double jtClamped = std::clamp(jt, -maxFriction, maxFriction);
+                Vector3d frictionImpulse = jtClamped * tangent;
+
+                // Get total mass
+                double massA = pa->m;
+                double massB = pb->m;
+                double totalMass = massA + massB;
+
+                double scaleA = massB / totalMass;  // heavier body resists more
+                double scaleB = massA / totalMass;
+
+                bool aMoving = pa->v.head<2>().norm() > 1e-4;
+                bool bMoving = pb->v.head<2>().norm() > 1e-4;
+
+                if (!aMoving && bMoving) {
+                    // pb is moving, pa is not — drag pa
+                    pa->v -= frictionImpulse / massA;
+                }
+                else if (aMoving && !bMoving) {
+                    // pa is moving, pb is not — drag pb
+                    pb->v += frictionImpulse / massB;
+                }
+                else {
+                    // Both moving or both still — split
+                    pa->v -= frictionImpulse * 0.5 / massA;
+                    pb->v += frictionImpulse * 0.5 / massB;
+                }
+
+
+
+            }
+
+
         }
     }
+
 
 }
 
@@ -275,10 +339,13 @@ void Polygon::step(
     const Vector3d& gravity,
     double damping)
 {
-    // 1. Apply forces
+    // 1. Apply forces (update velocity only)
     applyForces(timeStep, gravity, damping);
 
-    // 2. Resolve overlaps (edge-based)
+    // 2. Integrate velocity into position
+    integratePosition(timeStep);
+
+    // 2. Resolve overlaps
     for (int k = 0; k < collisionIters; ++k) {
         for (auto& other : others) {
             if (other.get() != this) {
@@ -326,8 +393,32 @@ void Polygon::step(
     // 5. Update velocity
     updateVelocities(timeStep);
 
-    // 6. Ground friction
+    // 6. Friction
     applyGroundFriction(groundY, gravity, timeStep, others);
+
+
+    Vector3d avgV = Vector3d::Zero();
+    for (auto& p : particles) avgV += p->v;
+    avgV /= particles.size();
+
+    bool atRest = std::abs(avgV.x()) < 0.01 && std::abs(avgV.y()) < 0.01;
+
+    for (auto& p : particles) {
+        if (p->v.head<2>().norm() > 0.02) {
+            atRest = false;
+            break;
+        }
+    }
+
+    if (atRest) {
+        for (auto& p : particles) {
+            if (!p->fixed) {
+                p->v.setZero();
+                p->x.x() = p->p.x();  // full position freeze
+            }
+        }
+    }
+
 
 }
 

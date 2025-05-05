@@ -22,6 +22,7 @@ public:
     void updateVelocities(double timeStep);
     double getTotalMass() const;
     double computeEffectiveNormalForce(const std::vector<std::shared_ptr<Polygon>>& others);
+    void integratePosition(double timeStep);
     void applyGroundFriction(double groundY, const Eigen::Vector3d& gravity, double timeStep, std::vector<std::shared_ptr<Polygon>> others);
     void step(
         double timeStep,
