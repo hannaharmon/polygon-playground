@@ -58,6 +58,8 @@ Eigen::Vector2f grabCurrent;
 
 Tool currentTool = Tool::Flick;
 
+std::vector<std::shared_ptr<Polygon>> selectedPolygons;
+
 GLFWcursor* arrowCursor;
 GLFWcursor* handCursor;
 GLFWcursor* crosshairCursor;
@@ -233,6 +235,28 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
         }
         break;
 
+    case Tool::Eraser:
+        if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+            if (!selectedPolygons.empty()) {
+                // Delete all selected polygons
+                for (const auto& poly : selectedPolygons) {
+                    polygons.erase(std::remove(polygons.begin(), polygons.end(), poly), polygons.end());
+                }
+                selectedPolygons.clear();
+            }
+            else {
+                // Delete hovered polygon
+                for (auto it = polygons.begin(); it != polygons.end(); ++it) {
+                    if ((*it)->containsPoint(worldClick, 0.05f)) {
+                        polygons.erase(it);
+                        break;
+                    }
+                }
+            }
+        }
+        break;
+
+
     default:
         break;
     }
@@ -251,6 +275,7 @@ void cursor_position_callback(GLFWwindow* window, double xpos, double ypos) {
 void LoadScene(int key) {
 	sceneManager.LoadScene(key);
 	polygons = sceneManager.GetPolygons();
+    selectedPolygons.clear();
 }
 
 void initScenes() {
