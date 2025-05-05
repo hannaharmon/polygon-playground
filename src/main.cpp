@@ -26,6 +26,7 @@
 #include "Particle.h"
 #include "Button.h"
 #include "Tool.h"
+#include "SpatialHashGrid.h"
 
 std::vector<Button> buttons;
 
@@ -45,6 +46,8 @@ const double flickForceScale = 10;
 SceneManager sceneManager;
 vector<shared_ptr<Polygon>> polygons;
 GLFWwindow* window;
+
+SpatialHashGrid collisionGrid(1.0f);  // Adjust cell size as needed
 
 bool uiHovered = false;
 
@@ -769,16 +772,16 @@ void initButtons() {
 
 
 void display(GLFWwindow* window) {
+
+    collisionGrid.clear();
     for (auto& poly : polygons) {
-        poly->step(
-            timeStep,
-            springIters,                
-            collisionIters,               
-            groundY,
-            polygons,
-            gravity,
-            damping
-        );
+        collisionGrid.insert(poly);
+    }
+
+    // Only check collisions with neighbors
+    for (auto& poly : polygons) {
+        auto neighbors = collisionGrid.getNearby(poly);
+        poly->step(timeStep, springIters, collisionIters, groundY, neighbors, gravity, damping);
     }
 
     updateProjection(window);
