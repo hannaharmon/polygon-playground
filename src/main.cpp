@@ -17,10 +17,17 @@
 #define M_PI 3.14159265358979323846
 #endif
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 #include "SceneManager.h"
 #include "PolygonFactory.h"
 #include "Polygon.h"
 #include "Particle.h"
+#include "Button.h"
+#include "Tool.h"
+
+std::vector<Button> buttons;
 
 using namespace std;
 using namespace Eigen;
@@ -49,13 +56,35 @@ bool grabActive = false;
 Eigen::Vector2f grabStartCenterOffset;
 Eigen::Vector2f grabCurrent;
 
-enum class Tool { None, View, Flick, Grab, Select, Pencil, Eraser };
 Tool currentTool = Tool::Flick;
 
 GLFWcursor* arrowCursor;
 GLFWcursor* handCursor;
 GLFWcursor* crosshairCursor;
 GLFWcursor* ibeamCursor;
+
+unsigned int LoadTexture(const char* path) {
+    int width, height, channels;
+    unsigned char* data = stbi_load(path, &width, &height, &channels, STBI_rgb_alpha);
+    if (!data) {
+        std::cerr << "Failed to load image: " << path << std::endl;
+        return 0;
+    }
+
+    unsigned int tex;
+    glGenTextures(1, &tex);
+    glBindTexture(GL_TEXTURE_2D, tex);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height,
+        0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    stbi_image_free(data);
+    return tex;
+}
+
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
@@ -133,6 +162,17 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
     glfwGetCursorPos(window, &sx, &sy);
     Eigen::Vector2f worldClick = screenToWorld(window, sx, sy);
 
+    if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+        // Check if user clicked a UI button
+        for (auto& b : buttons) {
+            if (b.isHovered(worldClick.x(), worldClick.y())) {
+                b.click();
+                return; // Skip simulation click handling
+            }
+        }
+    }
+
+    // If not button press, try to use current tool
     switch (currentTool) {
     case Tool::Flick:
         if (button == GLFW_MOUSE_BUTTON_LEFT) {
@@ -221,6 +261,52 @@ void initScenes() {
 	LoadScene(1);
 }
 
+void initButtons() {
+    int w, h;
+    glfwGetFramebufferSize(window, &w, &h);
+
+    struct ButtonInfo {
+        const char* iconFile;
+        Tool tool;
+    };
+
+    std::vector<ButtonInfo> toolButtons = {
+        {"view.png", Tool::View},
+        {"flick.png", Tool::Flick},
+        {"grab.png", Tool::Grab},
+        {"select.png", Tool::Select},
+        {"pencil.png", Tool::Pencil},
+        {"eraser.png", Tool::Eraser}
+    };
+
+    const int btnSize = 40;
+    const int spacing = 10;
+    int x = 10;
+
+    for (const auto& tb : toolButtons) {
+        Eigen::Vector2f p1 = screenToWorld(window, x, h - 10 - btnSize);
+        Eigen::Vector2f p2 = screenToWorld(window, x + btnSize, h - 10);
+
+        float width = p2.x() - p1.x();
+        float height = p2.y() - p1.y();
+        glm::vec2 pos(std::min(p1.x(), p2.x()), std::min(p1.y(), p2.y()));
+        glm::vec2 size(std::abs(width), std::abs(height));
+
+        Button button(pos, size, tb.tool, [tool = tb.tool]() {
+            currentTool = tool;
+            });
+
+        std::string fullPath = "assets/icons/" + std::string(tb.iconFile);
+        unsigned int texture = LoadTexture(fullPath.c_str());
+        button.setTexture(texture);
+
+        buttons.emplace_back(std::move(button));
+
+        x += btnSize + spacing;
+    }
+}
+
+
 void display(GLFWwindow* window) {
     for (auto& poly : polygons) {
         poly->step(
@@ -237,6 +323,13 @@ void display(GLFWwindow* window) {
     glClear(GL_COLOR_BUFFER_BIT);
     for (auto& poly : polygons) {
         poly->draw();
+    }
+
+    // Reset modelview for UI
+    glLoadIdentity();
+
+    for (const auto& button : buttons) {
+        button.draw(button.getTool() == currentTool);
     }
 
     if (flickActive) {
@@ -319,6 +412,7 @@ int main() {
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
     initScenes();
+    initButtons();
 
     glfwSetKeyCallback(window, key_callback);
     glfwSetCharCallback(window, character_callback);
