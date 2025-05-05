@@ -837,10 +837,28 @@ void display(GLFWwindow* window) {
 
 }
 
+void resetScene(GLFWwindow* window) {
+    polygons.clear();
+    selectedPolygons.clear();
+    cameraPosition = Eigen::Vector2f(0.0f, 0.0f);
+    cameraZoom = 1.0f;
+
+    int w, h;
+    glfwGetFramebufferSize(window, &w, &h);
+    updateProjection(window);
+
+    LoadScene(1);
+}
+
+
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     if (action == GLFW_PRESS) {
         if (key == GLFW_KEY_ESCAPE) {
             glfwSetWindowShouldClose(window, GL_TRUE);
+        }
+
+        if (key == GLFW_KEY_R) {
+            resetScene(window);
         }
 
         switch (key) {
