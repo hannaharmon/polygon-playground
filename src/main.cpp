@@ -479,13 +479,21 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
             }
             selectedPolygons.clear();
             for (auto& poly : polygons) {
-                Eigen::Vector2f center = poly->getCenter();
-                if (center.x() >= xMin && center.x() <= xMax &&
-                    center.y() >= yMin && center.y() <= yMax) {
+                bool intersects = false;
+                for (auto& particle : poly->particles) {
+                    Eigen::Vector2f pos(particle->x.x(), particle->x.y());
+                    if (pos.x() >= xMin && pos.x() <= xMax &&
+                        pos.y() >= yMin && pos.y() <= yMax) {
+                        intersects = true;
+                        break;
+                    }
+                }
+                if (intersects) {
                     selectedPolygons.push_back(poly);
                     poly->outlineColor = selectedOutlineColor;
                 }
             }
+
         }
         break;
 
