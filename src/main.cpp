@@ -771,6 +771,39 @@ void initButtons() {
     }
 }
 
+bool isPolygonVisible(const std::shared_ptr<Polygon>& poly, GLFWwindow* window) {
+    int width, height;
+    glfwGetFramebufferSize(window, &width, &height);
+    float aspect = width / static_cast<float>(height);
+    float viewHeight = 2.0f / cameraZoom;
+
+    float left, right, top, bottom;
+
+    if (aspect >= 1.0f) {
+        float viewWidth = viewHeight * aspect;
+        left = cameraPosition.x() - viewWidth;
+        right = cameraPosition.x() + viewWidth;
+        bottom = cameraPosition.y() - viewHeight;
+        top = cameraPosition.y() + viewHeight;
+    }
+    else {
+        float viewWidth = viewHeight;
+        viewHeight = viewWidth / aspect;
+        left = cameraPosition.x() - viewWidth;
+        right = cameraPosition.x() + viewWidth;
+        bottom = cameraPosition.y() - viewHeight;
+        top = cameraPosition.y() + viewHeight;
+    }
+
+    Eigen::Vector2f center = poly->getCenter();
+    float r = poly->getBoundingRadius();
+
+    return !(center.x() + r < left ||
+        center.x() - r > right ||
+        center.y() + r < bottom ||
+        center.y() - r > top);
+}
+
 
 void display(GLFWwindow* window) {
 
@@ -802,7 +835,9 @@ void display(GLFWwindow* window) {
 
     glClear(GL_COLOR_BUFFER_BIT);
     for (auto& poly : polygons) {
-        poly->draw();
+        if (isPolygonVisible(poly, window)) {
+            poly->draw();
+        }
     }
 
     if (currentTool == Tool::Pencil) {
