@@ -40,8 +40,10 @@ public:
     bool isAbove(const std::shared_ptr<Polygon>& other) const;
     void applyImpulseAt(const Eigen::Vector2f& worldPoint, const Eigen::Vector2f& impulse2D);
     Eigen::Vector2f getCenter() const;
-    Eigen::Vector3f defaultOutlineColor = Eigen::Vector3f(1.0f, 1.0f, 1.0f);
-    Eigen::Vector3f outlineColor = defaultOutlineColor;
+    Eigen::Vector4f defaultOutlineColor = Eigen::Vector4f(1.0f, 1.0f, 1.0f, 1.0f);
+    Eigen::Vector4f defaultFillColor = Eigen::Vector4f(0.0f, 0.5f, 1.0f, 1.0f);
+    Eigen::Vector4f outlineColor = defaultOutlineColor;
+    Eigen::Vector4f fillColor = defaultFillColor;
     std::vector<std::shared_ptr<Particle>> particles;
     std::vector<std::shared_ptr<Spring>> springs;
 

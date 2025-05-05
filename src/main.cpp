@@ -64,6 +64,7 @@ Eigen::Vector2f pencilMousePos;
 float pencilSizeX = 0.3f;
 float pencilSizeY = 0.3f;
 int pencilSides = 4;
+float pencilRotation = 0.0f;
 
 GLFWcursor* arrowCursor;
 GLFWcursor* handCursor;
@@ -197,7 +198,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
                     if (poly->containsPoint(worldClick, 0.05f)) {
                         selectedPolygon = poly;
                         flickActive = true;
-                        poly->outlineColor = Eigen::Vector3f(1.0f, 1.0f, 0.0f);
+                        poly->outlineColor = Eigen::Vector4f(1.0f, 1.0f, 0.0f, 1.0f);
                         flickStartCenterOffset = worldClick - poly->getCenter();
                         flickCurrent = worldClick;
                         break;
@@ -225,7 +226,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
                     if (poly->containsPoint(worldClick, 0.05f)) {
                         selectedPolygon = poly;
                         grabActive = true;
-                        poly->outlineColor = Eigen::Vector3f(0.0f, 1.0f, 0.0f);
+                        poly->outlineColor = Eigen::Vector4f(0.0f, 1.0f, 0.0f, 1.0f);
                         grabStartCenterOffset = worldClick - poly->getCenter();
                         grabCurrent = worldClick;
                         break;
@@ -267,7 +268,8 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
                 PolygonFactory::CreateRegularPolygon(
                     Vector3d(pencilMousePos.x(), pencilMousePos.y(), 0.0),
                     pencilSides,
-                    pencilSizeX, pencilSizeY
+                    pencilSizeX, pencilSizeY,
+                    pencilRotation
                 )
             );
         }
@@ -282,11 +284,15 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
     }
 }
 
-void scroll_callback(GLFWwindow * window, double xoffset, double yoffset) {
-    if (currentTool == Tool::Pencil) {
-        float scale = (yoffset > 0) ? 1.1f : 0.9f;
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
+    float scale = (yoffset > 0) ? 1.1f : 0.9f;
 
-        if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS ||
+    if (currentTool == Tool::Pencil) {
+        if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS ||
+            glfwGetKey(window, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS) {
+            pencilRotation += (yoffset > 0 ? 1 : -1) * 0.1f;
+        }
+        else if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS ||
             glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS) {
             pencilSizeX *= scale;
             pencilSizeX = std::clamp(pencilSizeX, 0.05f, 1.5f);
@@ -402,6 +408,19 @@ void display(GLFWwindow* window) {
 
     for (const auto& button : buttons) {
         button.draw(button.getTool() == currentTool);
+    }
+
+    if (currentTool == Tool::Pencil) {
+        auto ghost = PolygonFactory::CreateRegularPolygon(
+            Vector3d(pencilMousePos.x(), pencilMousePos.y(), 0.0),
+            pencilSides,
+            pencilSizeX, pencilSizeY,
+            pencilRotation
+        );
+        ghost->fillColor.w() = 0.3f;
+        ghost->outlineColor.w() = 0.6f;
+        
+        ghost->draw();
     }
 
     if (flickActive) {

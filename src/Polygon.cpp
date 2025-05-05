@@ -485,7 +485,7 @@ void drawPolygonOffset(
     const std::vector<std::shared_ptr<Particle>>& particles,
     float offset,
     bool fill,
-    const Eigen::Vector3f& color,
+    const Eigen::Vector4f& color,
     float lineWidth = 2.5f
 ) {
     using Vec2 = Eigen::Vector2f;
@@ -498,7 +498,7 @@ void drawPolygonOffset(
     center /= particles.size();
 
     // Set color
-    glColor3f(color.x(), color.y(), color.z());
+    glColor4f(color.x(), color.y(), color.z(), color.w());
 
     // Choose draw mode
     if (fill) {
@@ -617,6 +617,6 @@ void Polygon::draw(bool drawParticles, bool drawSprings, bool drawEdges) const {
     float offset = .5 * .1;
 
 
-    drawPolygonOffset(particles, 0, true, Eigen::Vector3f(0.0f, 0.5f, 1.0f));
+    drawPolygonOffset(particles, 0, true, fillColor);
     drawPolygonOffset(particles, 0, false, outlineColor);
 }
