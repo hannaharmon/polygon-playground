@@ -22,17 +22,20 @@ void Button::draw(bool active) const {
     glVertex2f(position.x, position.y + size.y);
     glEnd();
 
-    // icon
     if (textureID) {
         glEnable(GL_TEXTURE_2D);
         glBindTexture(GL_TEXTURE_2D, textureID);
         glColor3f(1, 1, 1); // No tint
 
-        float margin = 2.0f;
-        float x0 = position.x + margin;
-        float y0 = position.y + margin;
-        float x1 = position.x + size.x - margin;
-        float y1 = position.y + size.y - margin;
+        // Draw smaller icon centered inside button with more margin
+        float marginScale = 0.25f; // 25% inward padding
+        float xMargin = size.x * marginScale;
+        float yMargin = size.y * marginScale;
+
+        float x0 = position.x + xMargin;
+        float y0 = position.y + yMargin;
+        float x1 = position.x + size.x - xMargin;
+        float y1 = position.y + size.y - yMargin;
 
         glBegin(GL_QUADS);
         glTexCoord2f(0, 0); glVertex2f(x0, y0);
@@ -43,6 +46,8 @@ void Button::draw(bool active) const {
 
         glDisable(GL_TEXTURE_2D);
     }
+
+
 }
 
 bool Button::isHovered(float worldX, float worldY) const {

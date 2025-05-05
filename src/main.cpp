@@ -63,11 +63,20 @@ GLFWcursor* handCursor;
 GLFWcursor* crosshairCursor;
 GLFWcursor* ibeamCursor;
 
-unsigned int LoadTexture(const char* path) {
+unsigned int LoadTexture(const std::string& directory, const std::string& filename) {
+    std::string fullPath = directory + "/" + filename;
+
+    stbi_set_flip_vertically_on_load(true);
+
     int width, height, channels;
-    unsigned char* data = stbi_load(path, &width, &height, &channels, STBI_rgb_alpha);
+    unsigned char* data = stbi_load(fullPath.c_str(), &width, &height, &channels, STBI_rgb_alpha);
     if (!data) {
-        std::cerr << "Failed to load image: " << path << std::endl;
+        // try to load placeholder
+        std::string fullPath = directory + "/" + "star.png";
+        data = stbi_load(fullPath.c_str(), &width, &height, &channels, STBI_rgb_alpha);
+    }
+    if (!data) {
+        std::cerr << "Failed to load image: " << fullPath << std::endl;
         return 0;
     }
 
@@ -296,8 +305,8 @@ void initButtons() {
             currentTool = tool;
             });
 
-        std::string fullPath = "assets/icons/" + std::string(tb.iconFile);
-        unsigned int texture = LoadTexture(fullPath.c_str());
+        std::string directory = "../assets/icons";
+        unsigned int texture = LoadTexture(directory, std::string(tb.iconFile));
         button.setTexture(texture);
 
         buttons.emplace_back(std::move(button));
@@ -398,6 +407,10 @@ int main() {
     glfwMakeContextCurrent(window);
     glewExperimental = true;
     glewInit();
+
+    // For alpha of images
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     arrowCursor = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
     handCursor = glfwCreateStandardCursor(GLFW_HAND_CURSOR);
