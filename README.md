@@ -3,9 +3,7 @@
 </p>
 
 <br></br>
-**polygon playground** is a physics-based 2D interaction sandbox inspired by Boom Blox Bash Party. Built using modern C++ and OpenGL, it allows users to create, manipulate, and destroy polygon structures with a variety of tools.
-
-
+**polygon playground** is a physics-based 2D interaction sandbox inspired by Boom Blox Bash Party. Built using modern C++ and OpenGL, it allows users to create, manipulate, and destroy polygon structures with a variety of tools. See the demo and more at [https://hannaharmon.github.io/polygon-playground/](https://hannaharmon.github.io/polygon-playground/).
 
 ## ⇨ features
 
