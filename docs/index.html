@@ -25,12 +25,34 @@
       cursor: url('grab.png') 16 16, auto;
     }
 
-    .container {
-      max-width: 1000px;
-      margin: auto;
+    .flow-layout {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 4rem;
       padding: 2rem;
+    }
+
+    .flow-section {
+      border: 2px solid white;
+      padding: 2rem;
+      border-radius: 10px;
+      display: inline-block;
       text-align: center;
     }
+
+    .description-card {
+      max-width: 500px;
+      width: 100%;
+    }
+    .controls-card {
+      max-width: 800px;
+      width: 100%;
+    }
+
+
+
     .logo {
       width: 700px;
       margin-bottom: 3rem;
@@ -40,10 +62,12 @@
       max-height: 500px;
       margin-bottom: 2rem;
     }
+
     .section-header {
       width: 300px;
       margin: 5rem auto 1rem;
       margin-bottom: 2rem;
+      margin-top: 2rem;
       display: block;
     }
     ul.libraries {
@@ -55,13 +79,6 @@
     }
     .description-header {
       width: 400px;
-    }
-
-    .video-wrapper {
-      margin-bottom: 5rem;
-    }
-    p {
-        margin-bottom: 5rem;
     }
     .github-link {
       transition: transform 0.3s ease;
@@ -84,7 +101,6 @@
       padding: 1rem;
       box-sizing: border-box;
       border-radius: 8px;
-      -bottom: 0px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -100,93 +116,107 @@
   </style>
 </head>
 <body>
-  <div class="container">
-    <img src="logo.png" alt="polygon playground logo" class="logo" />
-    <div class="video-wrapper">
-        <iframe width="100%" height="500" 
-          src="https://www.youtube.com/embed/49N-Crz8FtQ" 
-          frameborder="0" 
-          allowfullscreen>
-        </iframe>
-    </div>
-    <div class="github-link" style="text-align: center; margin-top: 4rem; margin-bottom:4rem;">
-      <a href="https://github.com/hannaharmon/polygon-playground" target="_blank">
-        <img src="github.png" alt="GitHub" style="width: 250px;" />
 
-      </a>
-    </div>      
-    <img src="description.png" alt="description" class="description-header" />
-    <p>
-      polygon playground is a physics-based 2D interaction sandbox inspired by Boom Blox Bash Party. Built using modern C++ and OpenGL, it allows users to create, manipulate, and destroy polygon structures with a variety of tools.
-    </p>
+  <div class="flow-layout">
+
+    <div class="flow-section">
+      <img src="logo.png" alt="polygon playground logo" class="logo" />
+    </div>
+  
+    <div class="flow-section" style="width: 100%; max-width: 800px;">
+      <iframe 
+        style="width: 100%; aspect-ratio: 16/9; border: none;" 
+        src="https://www.youtube.com/embed/49N-Crz8FtQ" 
+        allowfullscreen>
+      </iframe>
+    </div>
     
-    <img src="controls.png" alt="controls" class="section-header" />
-
-    <div class="controls-grid">
-      <div class="control-item">
-        <img src="gifs/eraser.gif" alt="Eraser demo" />
-        <strong>Eraser: 1, E</strong>
-        <p>Click on a polygon to delete it.<br>Select many polygons, then click.</p>
-      </div>
-
-      <div class="control-item">
-        <img src="gifs/pencil_more_shapes.gif" alt="Pencil demo" />
-        <strong>Pencil: 2, P</strong>
-        <p>Click to create polygons.<br>Scroll to increase height.<br>Shift + scroll to increase width.<br>Ctrl + scroll to rotate.<br>Right click to cycle # of edges.</p>
-      </div>
-
-      <div class="control-item">
-        <img src="gifs/flick_small.gif" alt="Flick demo" />
-        <strong>Flick: 3, F</strong>
-        <p>Click and drag to flick a polygon.<br>Select many, then drag one to flick all.</p>
-      </div>
-
-      <div class="control-item">
-        <img src="gifs/grab_small.gif" alt="Grab demo" />
-        <strong>Grab: 4, G</strong>
-        <p>Click and drag to move polygons.<br>Select many and drag empty space.</p>
-      </div>
-
-      <div class="control-item">
-        <img src="gifs/duplicate.gif" alt="Select demo" />
-        <strong>Select: 5, S</strong>
-        <p>Click and drag to select polygons.<br>All within the box become selected.</p>
-      </div>
-
-      <div class="control-item">
-        <img src="gifs/big-flick-and-grab.gif" alt="View demo" />
-        <strong>View: 6, V</strong>
-        <p>Mouse wheel to zoom.<br>Click and drag to pan.<br>Use Space to quick toggle.</p>
-      </div>
+    <div class="flow-section description-card">
+      <img src="description.png" alt="description" class="description-header" />
+      <p>
+        polygon playground is a physics-based 2D interaction sandbox inspired by Boom Blox Bash Party. 
+        Built using modern C++ and OpenGL, it allows users to create, manipulate, and destroy polygon 
+        structures with a variety of tools.
+      </p>
+    </div>
+  
+    <!-- <div class="flow-section">
+      <img src="controls.png" alt="controls" class="section-header" />
+    </div> -->
+    
+    <div class="flow-section control-item">
+      <img src="gifs/eraser.gif" alt="Eraser demo" />
+      Eraser: 1, E
+      <p>Click on a polygon to delete it.<br>Select many polygons, then click.</p>
+    </div>
+    
+    <div class="flow-section control-item">
+      <img src="gifs/pencil_more_shapes.gif" alt="Pencil demo" />
+      Pencil: 2, P
+      <p>Click to create polygons.<br>Scroll to increase height.<br>Shift + scroll to increase width.<br>Ctrl + scroll to rotate.<br>Right click to cycle # of edges.</p>
+    </div>
+    
+    <div class="flow-section control-item">
+      <img src="gifs/flick_small.gif" alt="Flick demo" />
+      Flick: 3, F
+      <p>Click and drag to flick a polygon.<br>Select many, then drag one to flick all.</p>
+    </div>
+    
+    <div class="flow-section control-item">
+      <img src="gifs/grab_small.gif" alt="Grab demo" />
+      Grab: 4, G
+      <p>Click and drag to move polygons.<br>Select many and drag empty space.</p>
+    </div>
+    
+    <div class="flow-section control-item">
+      <img src="gifs/duplicate.gif" alt="Select demo" />
+      Select: 5, S
+      <p>Click and drag to select polygons.<br>All within the box become selected.</p>
+    </div>
+    
+    <div class="flow-section control-item">
+      <img src="gifs/big-flick-and-grab.gif" alt="View demo" />
+      View: 6, V
+      <p>Mouse wheel to zoom.<br>Click and drag to pan.<br>Use Space to quick toggle.</p>
+    </div>
+    
+    <div class="flow-section control-item">
+      Shortcuts
+      <p>Del — Delete selected polygons<br>
+         Ctrl+C — Copy<br>
+         Ctrl+X — Cut<br>
+         Ctrl+V — Paste<br>
+         Ctrl+D — Duplicate</p>
+    </div>
+    
+    <div class="flow-section control-item">
+      Other
+      <p>R — Reset<br>
+         ESC — Quit</p>
+    </div>
+    
+  
+    <div class="flow-section">
+      <img src="libraries.png" alt="libraries" class="section-header" />
+      <ul class="libraries">
+        <li>OpenGL</li>
+        <li>GLFW</li>
+        <li>GLEW</li>
+        <li>Eigen</li>
+        <li>stb_image</li>
+        <li>GLM</li>
+      </ul>
     </div>
 
-
-    <div class="controls-grid">
-      <div class="control-item">
-        <strong>Shortcuts</strong>
-        <p>Del — Delete selected polygons<br>
-          Ctrl+C — Copy<br>
-          Ctrl+X — Cut<br>
-          Ctrl+V — Paste<br>
-          Ctrl+D — Duplicate</p>
-      </div>
-
-      <div class="control-item">
-        <strong>Other</strong>
-        <p>R — Reset<br>
-          ESC — Quit</p>
+    <div class="flow-section github-link">
+      <div style="text-align: center;">
+        <a href="https://github.com/hannaharmon/polygon-playground" target="_blank">
+          <img src="github.png" alt="GitHub" style="width: 250px;" />
+        </a>
       </div>
     </div>
-
-    <img src="libraries.png" alt="libraries" class="section-header" />
-    <ul class="libraries">
-      <li>OpenGL</li>
-      <li>GLFW</li>
-      <li>GLEW</li>
-      <li>Eigen</li>
-      <li>stb_image</li>
-      <li>GLM</li>
-    </ul>
+  
+  
   </div>
   
 </body>
