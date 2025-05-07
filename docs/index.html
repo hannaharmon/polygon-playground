@@ -21,6 +21,10 @@
     html {
       cursor: url('grab.png') 16 16, auto;
     }
+    a {
+      cursor: url('grab.png') 16 16, auto;
+    }
+
     .container {
       max-width: 1000px;
       margin: auto;
@@ -59,6 +63,14 @@
     p {
         margin-bottom: 5rem;
     }
+    .github-link {
+      transition: transform 0.3s ease;
+    }
+
+    .github-link:hover {
+      transform: scale(1.1);
+    }
+
   </style>
 </head>
 <body>
@@ -70,6 +82,12 @@
           frameborder="0" 
           allowfullscreen>
         </iframe>
+    </div>
+    <div class="github-link" style="text-align: center; margin-top: 4rem; margin-bottom:4rem;">
+      <a href="https://github.com/hannaharmon/polygon-playground" target="_blank">
+        <img src="github.png" alt="GitHub" style="width: 250px;" />
+
+      </a>
     </div>      
     <img src="description.png" alt="description" class="description-header" />
     <p>
@@ -129,5 +147,6 @@
       <li>GLM</li>
     </ul>
   </div>
+  
 </body>
 </html>
