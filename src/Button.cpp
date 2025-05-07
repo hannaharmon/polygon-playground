@@ -6,6 +6,9 @@ Button::Button(const glm::vec2& pos, const glm::vec2& size, Tool tool, std::func
     : pos(pos), size(size), tool(tool), onClick(onClick), selectedColor(selectedColor), textureID(0) {
 }
 
+void Button::setPosition(const glm::vec2& newPos) {
+    pos = newPos;
+}
 
 
 void Button::draw(bool active) const {

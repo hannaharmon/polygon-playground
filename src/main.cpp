@@ -164,6 +164,21 @@ unsigned int LoadTexture(const std::string& directory, const std::string& filena
     return tex;
 }
 
+void layoutButtons() {
+    int w, h;
+    glfwGetFramebufferSize(window, &w, &h);
+
+    const int btnSize = 80;
+    const int spacing = 10;
+    int totalButtonWidth = buttons.size() * btnSize + (buttons.size() - 1) * spacing;
+    int x = (w - totalButtonWidth) / 2;
+
+    for (auto& button : buttons) {
+        button.setPosition(glm::vec2(x, 10));
+        x += btnSize + spacing;
+    }
+}
+
 GLFWcursor* LoadCursorFromFile(const std::string& path, int hotspotX, int hotspotY, int targetSize = 32) {
     int width, height, channels;
     stbi_set_flip_vertically_on_load(false);
@@ -217,6 +232,8 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     }
 
     glMatrixMode(GL_MODELVIEW);
+    layoutButtons();
+
 }
 
 void setScreenSpaceProjection(GLFWwindow* window) {
@@ -253,8 +270,6 @@ void updateProjection(GLFWwindow* window) {
 
     glMatrixMode(GL_MODELVIEW);
 }
-
-
 
 Eigen::Vector2f screenToWorld(GLFWwindow* window, double sx, double sy) {
     int width, height;
@@ -1352,6 +1367,7 @@ int main() {
 
     initScenes();
     initButtons();
+    layoutButtons();
 
     glfwSetKeyCallback(window, key_callback);
     glfwSetCharCallback(window, character_callback);

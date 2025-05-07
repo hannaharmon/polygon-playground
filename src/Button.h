@@ -16,6 +16,8 @@ public:
     void click();
     void setTexture(unsigned int tex) { textureID = tex; }
     Tool getTool() const { return tool; }
+    void setPosition(const glm::vec2& newPos);
+
 
 private:
     glm::vec2 pos;

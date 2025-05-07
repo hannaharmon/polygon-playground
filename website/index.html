@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>polygon playground</title>
+  <link rel="icon" type="image/png" href="grab.png" />
+  <link href="https://fonts.googleapis.com/css2?family=Jersey+10&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      font-family: "Jersey 10", sans-serif;
+      font-size: 1.5rem;
+      background-color: black;
+      color: white;
+      background-image: linear-gradient(to right, rgba(255, 255, 255, 0.4) 1px, transparent 1px),
+                  linear-gradient(to bottom, rgba(255, 255, 255, 0.4) 1px, transparent 1px);
+
+      background-size: 64px 64px;
+    }
+    html {
+      cursor: url('grab.png') 16 16, auto;
+    }
+    .container {
+      max-width: 1000px;
+      margin: auto;
+      padding: 2rem;
+      text-align: center;
+    }
+    .logo {
+      width: 700px;
+      margin-bottom: 3rem;
+    }
+    video {
+      width: 100%;
+      max-height: 500px;
+      margin-bottom: 2rem;
+    }
+    .section-header {
+      width: 300px;
+      margin: 5rem auto 1rem;
+      margin-bottom: 2rem;
+      display: block;
+    }
+    ul.libraries {
+      list-style: none;
+      padding: 0;
+    }
+    ul.libraries li {
+      margin: 0.5rem 0;
+    }
+    .description-header {
+      width: 400px;
+    }
+
+    .video-wrapper {
+      margin-bottom: 5rem;
+    }
+    p {
+        margin-bottom: 5rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <img src="logo.png" alt="polygon playground logo" class="logo" />
+    <div class="video-wrapper">
+        <iframe width="100%" height="500" 
+          src="https://www.youtube.com/embed/49N-Crz8FtQ" 
+          frameborder="0" 
+          allowfullscreen>
+        </iframe>
+    </div>      
+    <img src="description.png" alt="description" class="description-header" />
+    <p>
+        polygon playground is a c++ project inspired by the game Boom Blox Bash Party. Using 5 different tools, the user
+        can create and interact with polygons in an open scene.
+    </p>
+    <img src="controls.png" alt="controls" class="section-header" />
+    <p style="white-space: pre-wrap; text-align: center; margin: 0 auto; max-width: 800px;">
+    <u>Tools:</u><br>
+    Eraser: 1, E  
+    Click on a polygon to delete it.  
+    Select many polygons, then click  
+    
+    Pencil: 2, P  
+    Click to create polygons.  
+    Scroll to increase height.  
+    Shift + scroll to increase width.  
+    Ctrl + scroll to rotate.  
+    Right click to cycle # of edges.  
+    
+    Flick: 3, F  
+    Click on a polygon drag to change flick force, and release to flick it  
+    Select many polygons, then click and drag on one of them to flick them all.  
+    
+    Grab: 4, G  
+    Click and drag on a polygon to grab and move it  
+    Select many polygons, then click and drag anywhere in space to move them all  
+    
+    Select: 5, S  
+    Click and drag to create a selection rectangle.  
+    Polygons within the rectangle on release become selected.  
+    
+    View: 6, V (Space for quick swap)  
+    Mouse wheel to zoom in or out  
+    Left click to pan  
+    
+
+    <u>Shortcuts:</u><br>
+    Delete: Del — deletes selected polygons  
+    Copy: Ctrl+C — Copy selected polygons to clipboard  
+    Cut: Ctrl+X — Cut selected polygons (copy and delete)  
+    Paste: Ctrl+V — Paste polygons from clipboard at cursor position  
+    Duplicate: Ctrl+D — Clone selected polygons to cursor position  
+    
+    
+    <u>Other:</u><br>
+    R: Reset  
+    ESC: Quit  
+    </p>        
+    <img src="libraries.png" alt="libraries" class="section-header" />
+    <ul class="libraries">
+      <li>OpenGL</li>
+      <li>GLFW</li>
+      <li>GLEW</li>
+      <li>Eigen</li>
+      <li>stb_image</li>
+      <li>GLM</li>
+    </ul>
+  </div>
+</body>
+</html>
