@@ -1,8 +1,11 @@
-# polygon playground
+<p align="center">
+  <img src="docs/logo.png" alt="Polygon Playground Logo" width="500"/>
+</p>
 
+<br></br>
 **polygon playground** is a physics-based 2D interaction sandbox inspired by Boom Blox Bash Party. Built using modern C++ and OpenGL, it allows users to create, manipulate, and destroy polygon structures with a variety of tools.
 
----
+
 
 ## ⇨ features
 
@@ -11,6 +14,78 @@
 - Support for rotation, resizing, selection, and flicking
 - Custom pixel-style UI and tool icons
 - Minimalist OpenGL-based rendering with a grid background
+
+---
+
+## ⇨ controls
+
+### Tools:
+<p style="margin-top:4rem;">
+    <img src="docs/gifs/eraser.gif" alt="Eraser demo" width="400"/>
+</p>
+
+#### Eraser: 1, E
+- Click on a polygon to delete it.
+- Select many polygons, then click one to delete all.
+
+<p style="margin-top:4rem;">
+    <img src="docs/gifs/pencil_more_shapes.gif" alt="Pencil demo" width="400"/>
+</p>
+
+#### Pencil: 2, P
+- Click to create polygons.
+- Scroll to increase height.
+- Shift + scroll to increase width.
+- Ctrl + scroll to rotate.
+- Right click to cycle # of edges.
+
+<p style="margin-top:4rem;">
+    <img src="docs/gifs/flick_small.gif" alt="Flick demo" width="400"/>
+</p>
+
+#### Flick: 3, F
+- Click on a polygon drag to change flick force, and release to flick it
+- Select many polygons, then click and drag on one of them to flick them all.
+
+<p style="margin-top:4rem;">
+    <img src="docs/gifs/grab_small.gif" alt="Grab demo" width="400"/>
+</p>
+
+#### Grab: 4, G
+- Click and drag on a polygon to grab and move it
+- Select many polygons, then click and drag anywhere in space to move them all
+
+<p style="margin-top:4rem;">
+    <img src="docs/gifs/duplicate.gif" alt="Select demo" width="400"/>
+</p>
+
+#### Select: 5, S
+- Click and drag to create a selection rectangle. Polygons within the rectangle on release become selected.
+
+<p style="margin-top:4rem;">
+    <img src="docs/gifs/big-flick-and-grab.gif" alt="Grab demo" width="400"/>
+</p>
+
+#### View: 6, V (Space for quick swap)
+- Mouse wheel to zoom in or out
+- Left click to pan
+
+### Shortcuts:
+#### Delete: Del
+- deletes selected polygons
+#### Copy: Ctrl+C 
+- Copy selected polygons to clipboard
+#### Cut: Ctrl+X
+- Cut selected polygons (copy and delete)
+#### Paste: Ctrl+V 
+- Paste polygons from clipboard at cursor position
+#### Duplicate: Ctrl+D
+- Clone selected polygons to cursor position
+
+### Other
+#### R: Reset
+#### ESC: Quit
+
 
 ---
 

@@ -71,6 +71,32 @@
       transform: scale(1.1);
     }
 
+    .controls-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2rem;
+      justify-content: center;
+      margin-top: 3rem;
+    }
+    .control-item {
+      width: 300px;
+      border: 2px solid white;
+      padding: 1rem;
+      box-sizing: border-box;
+      border-radius: 8px;
+      -bottom: 0px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+    .control-item img {
+      width: 100%;
+      margin-bottom: 1rem;
+    }
+
+
   </style>
 </head>
 <body>
@@ -91,52 +117,67 @@
     </div>      
     <img src="description.png" alt="description" class="description-header" />
     <p>
-        polygon playground is a c++ project inspired by the game Boom Blox Bash Party. Using 5 different tools, the user
-        can create and interact with polygons in an open scene.
+      polygon playground is a physics-based 2D interaction sandbox inspired by Boom Blox Bash Party. Built using modern C++ and OpenGL, it allows users to create, manipulate, and destroy polygon structures with a variety of tools.
     </p>
+    
     <img src="controls.png" alt="controls" class="section-header" />
-    <p style="white-space: pre-wrap; text-align: center; margin: 0 auto; max-width: 800px;">
-    <u>Tools:</u><br>
-    Eraser: 1, E  
-    Click on a polygon to delete it.  
-    Select many polygons, then click  
-    
-    Pencil: 2, P  
-    Click to create polygons.  
-    Scroll to increase height.  
-    Shift + scroll to increase width.  
-    Ctrl + scroll to rotate.  
-    Right click to cycle # of edges.  
-    
-    Flick: 3, F  
-    Click on a polygon drag to change flick force, and release to flick it  
-    Select many polygons, then click and drag on one of them to flick them all.  
-    
-    Grab: 4, G  
-    Click and drag on a polygon to grab and move it  
-    Select many polygons, then click and drag anywhere in space to move them all  
-    
-    Select: 5, S  
-    Click and drag to create a selection rectangle.  
-    Polygons within the rectangle on release become selected.  
-    
-    View: 6, V (Space for quick swap)  
-    Mouse wheel to zoom in or out  
-    Left click to pan  
-    
 
-    <u>Shortcuts:</u><br>
-    Delete: Del — deletes selected polygons  
-    Copy: Ctrl+C — Copy selected polygons to clipboard  
-    Cut: Ctrl+X — Cut selected polygons (copy and delete)  
-    Paste: Ctrl+V — Paste polygons from clipboard at cursor position  
-    Duplicate: Ctrl+D — Clone selected polygons to cursor position  
-    
-    
-    <u>Other:</u><br>
-    R: Reset  
-    ESC: Quit  
-    </p>        
+    <div class="controls-grid">
+      <div class="control-item">
+        <img src="gifs/eraser.gif" alt="Eraser demo" />
+        <strong>Eraser: 1, E</strong>
+        <p>Click on a polygon to delete it.<br>Select many polygons, then click.</p>
+      </div>
+
+      <div class="control-item">
+        <img src="gifs/pencil_more_shapes.gif" alt="Pencil demo" />
+        <strong>Pencil: 2, P</strong>
+        <p>Click to create polygons.<br>Scroll to increase height.<br>Shift + scroll to increase width.<br>Ctrl + scroll to rotate.<br>Right click to cycle # of edges.</p>
+      </div>
+
+      <div class="control-item">
+        <img src="gifs/flick_small.gif" alt="Flick demo" />
+        <strong>Flick: 3, F</strong>
+        <p>Click and drag to flick a polygon.<br>Select many, then drag one to flick all.</p>
+      </div>
+
+      <div class="control-item">
+        <img src="gifs/grab_small.gif" alt="Grab demo" />
+        <strong>Grab: 4, G</strong>
+        <p>Click and drag to move polygons.<br>Select many and drag empty space.</p>
+      </div>
+
+      <div class="control-item">
+        <img src="gifs/duplicate.gif" alt="Select demo" />
+        <strong>Select: 5, S</strong>
+        <p>Click and drag to select polygons.<br>All within the box become selected.</p>
+      </div>
+
+      <div class="control-item">
+        <img src="gifs/big-flick-and-grab.gif" alt="View demo" />
+        <strong>View: 6, V</strong>
+        <p>Mouse wheel to zoom.<br>Click and drag to pan.<br>Use Space to quick toggle.</p>
+      </div>
+    </div>
+
+
+    <div class="controls-grid">
+      <div class="control-item">
+        <strong>Shortcuts</strong>
+        <p>Del — Delete selected polygons<br>
+          Ctrl+C — Copy<br>
+          Ctrl+X — Cut<br>
+          Ctrl+V — Paste<br>
+          Ctrl+D — Duplicate</p>
+      </div>
+
+      <div class="control-item">
+        <strong>Other</strong>
+        <p>R — Reset<br>
+          ESC — Quit</p>
+      </div>
+    </div>
+
     <img src="libraries.png" alt="libraries" class="section-header" />
     <ul class="libraries">
       <li>OpenGL</li>
