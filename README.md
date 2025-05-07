@@ -16,7 +16,7 @@
 
 ## ⇨ setup
 
-### ❑ dependencies
+### ❑ install dependencies
 
 Before building, ensure the following libraries are installed:
 
@@ -46,6 +46,45 @@ brew install cmake glfw glew glm eigen
 - Be sure to add include/library paths in your CMake GUI.
 
 ---
+### ❑ environment variables
+
+Before running CMake, make sure you have the following environment variables defined, pointing to the root directories of each dependency:
+
+| Variable Name         | Description                        |
+|-----------------------|------------------------------------|
+| `GLFW_DIR`            | Root directory of GLFW             |
+| `GLEW_DIR`            | Root directory of GLEW             |
+| `GLM_INCLUDE_DIR`     | Path to GLM include directory      |
+| `EIGEN3_INCLUDE_DIR`  | Path to Eigen include directory    |
+<span style="line-height: 1;">&nbsp;</span>
+
+**Windows:**
+
+Open **Command Prompt** or **PowerShell**, then run:
+```bash
+setx GLFW_DIR "C:\path\to\glfw"
+setx GLEW_DIR "C:\path\to\glew"
+setx GLM_INCLUDE_DIR "C:\path\to\glm"
+setx EIGEN3_INCLUDE_DIR "C:\path\to\eigen"
+```
+
+Or temporarily for the current session:
+```bash
+set GLFW_DIR=C:\path\to\glfw
+```
+
+#### macOS / Linux
+
+Add to your `.bashrc`, `.zshrc`, or run in the terminal:
+```bash
+export GLFW_DIR=/path/to/glfw
+export GLEW_DIR=/path/to/glew
+export GLM_INCLUDE_DIR=/path/to/glm
+export EIGEN3_INCLUDE_DIR=/path/to/eigen
+```
+
+---
+
 
 ## ⇨ building with CMake
 
@@ -79,5 +118,7 @@ After building, run the executable:
 ./PolygonPlayground
 ```
 (On Windows: `PolygonPlayground.exe`)
+
+Or, use run option in IDE. Run in release mode for best performance.
 
 ---
